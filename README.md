@@ -105,3 +105,7 @@ This is a research project. Nothing in it is a recommendation to buy or sell
 any security, and it does not execute trades. Commentary is summarised with
 short attributed quotes. Transcripts and vendor price data are not
 redistributed here.
+
+## License
+
+MIT. See [`LICENSE`](LICENSE).
