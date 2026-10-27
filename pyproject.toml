@@ -1,0 +1,52 @@
+[project]
+name = "rotation-tracker"
+version = "0.1.0"
+description = "Weekly FX Evolution market-wrap transcripts in Postgres, for sector-rotation research."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+dependencies = [
+  "typer>=0.15",
+  "python-dotenv>=1.0",
+  "psycopg[binary]>=3.2",
+  "yt-dlp>=2026.1",
+  # Pinned to transcript·lab's own version: this repo reads its Chroma store, and a
+  # newer client could migrate that store under it.
+  "chromadb==1.5.9",
+  "mlflow-skinny>=3.12,<4",
+]
+
+[project.scripts]
+rt = "rotation_tracker.cli:app"
+
+[dependency-groups]
+dev = ["pytest>=8.3", "ruff>=0.14", "mypy>=1.13"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rotation_tracker"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["typer.Option", "typer.Argument"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = ["yt_dlp.*", "chromadb.*", "mlflow.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
