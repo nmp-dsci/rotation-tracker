@@ -108,6 +108,26 @@ uv run rt sync                        # ⑤ copy into Postgres, cut at chapters
 uv run rt status                      # the funnel
 ```
 
+### The viewer
+
+A local site for browsing the corpus: every weekly wrap, each transcript cut into chapter
+"tracks", Chroma's chunks, full-text search, a quarterly chart of themes by mentions, and the
+liner notes (what was built, where it lives, what it cost). It reads Postgres as `rotation_ro`,
+opens transcript·lab's Chroma store read-only, links to MLflow, and binds to 127.0.0.1 only.
+The look follows the Lovable "Sonora" music template, built on the portfolio's house UI. Plan
+of record: [`ai_specs/s01_viewer.md`](ai_specs/s01_viewer.md).
+
+```bash
+cd frontend && npm ci && npm run build && cd ..
+uv run rt serve                        # http://127.0.0.1:8089, the API and the built UI
+
+# while working on the UI, in two terminals:
+uv run rt serve --reload               # the API on :8089
+cd frontend && npm run dev             # the UI on http://127.0.0.1:5178, proxying /api
+
+cd frontend && npm run typecheck && npm run lint:design && npm test
+```
+
 ## Working on this repo
 
 - **`AGENTS.md` is the one instruction file for coding agents**, whatever the

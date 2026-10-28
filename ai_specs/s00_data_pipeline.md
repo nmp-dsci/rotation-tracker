@@ -12,7 +12,7 @@ Plan of record for the `data-pipeline` branch. The reviewable page with the evid
 | Depth | 2023 onwards: weeks from the one ending Fri 6 Jan 2023, newest first. Nothing earlier |
 | Focus | Macro and flows. Transcripts are cut at chapters and tagged by `topic/v1`; rotation work reads `macro-flows` and `untagged` sections |
 | Transcripts | Supadata only, through transcript-rag-agent `index-rag --metadata-json` (1 credit per video). Its Chroma store stays the source of truth; this repo copies read-only |
-| Storage | Central Postgres, database `rotation`, schema `rt`, roles `rotation_owner` / `rotation_ro` (registry P9) |
+| Storage | Central Postgres, database `rotation`, schema `rt`, roles `rotation_owner` / `rotation_ro` (registry P11) |
 | Prices (next) | Copy value-invest-agent's yfinance loader into this repo |
 | Daily videos | Weekly only. Dailies are listed and dated so the pick rule can run; no daily chapters or transcripts |
 

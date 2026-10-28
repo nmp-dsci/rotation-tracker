@@ -28,3 +28,8 @@ mlflow.db
 
 # Local caches: yt-dlp lookups, prices, seed data from the s00 analysis
 .rt/
+
+# viewer frontend
+node_modules/
+frontend/dist/
+*.tsbuildinfo

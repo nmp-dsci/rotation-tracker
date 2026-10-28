@@ -1,0 +1,8 @@
+/* P11 rotation-tracker — house UI v1.
+   PROVISIONAL, written by hand: P11 has no `ui:` block in registry/projects.yaml, because no hue
+   is left 30° from the other ten. 15 is shared with P9 finance-rag-sft by the owner's choice
+   (28 Oct 2026), to keep the Sonora-style viewer's warm blush; `make house-ui` would refuse it in
+   the registry. Once the platform's separation rule (D8) settles and the registry carries a hue,
+   `make install-house-ui` replaces this file. Load after house.css. The hue is the only thing
+   this project owns. */
+:root{ --hue:15; }

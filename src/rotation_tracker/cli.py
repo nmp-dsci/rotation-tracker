@@ -120,6 +120,23 @@ def credits() -> None:
 
 
 @app.command()
+def serve(
+    port: int = typer.Option(8089, help="Port on 127.0.0.1."),
+    reload: bool = typer.Option(False, help="Reload on code changes (development)."),
+) -> None:
+    """The viewer: a read-only API, and the UI once `npm run build` has run in frontend/."""
+    import uvicorn
+
+    uvicorn.run(
+        "rotation_tracker.serving.app:create_app",
+        factory=True,
+        host="127.0.0.1",
+        port=port,
+        reload=reload,
+    )
+
+
+@app.command()
 def status() -> None:
     """The funnel: listed → dated → picked → ingested → synced."""
     with db.connect(readonly=True) as con:

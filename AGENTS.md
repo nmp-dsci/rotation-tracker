@@ -18,7 +18,7 @@ listener**. `README.md` has the thesis and the roadmap.
 
 **Status: M1, data pipeline.** Source: FX Evolution's weekly market wrap,
 2023 onwards, one video per week (`pick/v1`). Read `ai_specs/s00_data_pipeline.md`
-before changing ingestion.
+before changing ingestion, and `ai_specs/s01_viewer.md` before changing the viewer.
 
 ## Vocabulary
 
@@ -85,6 +85,11 @@ before changing ingestion.
   nothing.
 - Secrets come from the environment (`./.env`, then `~/.env`), never from code
   or config files.
+- The viewer (`frontend/`, React + Vite) is styled only by the house UI in
+  `.lavish/` (`house.css`, `project.css`, `fonts/`). No colour literal, no `--hue`
+  and no font size under `--t-2` in `frontend/src`: `npm run lint:design` fails on
+  them. Its API (`rt serve`) is read-only and binds to 127.0.0.1. Frontend tests use
+  synthetic fixtures, never corpus text.
 
 ## Shared platform
 
@@ -96,9 +101,9 @@ tracking, storage or deployment.
   back to a `sqlite:` or `file:` store. Experiments are named
   `rotation-tracker/<purpose>` (e.g. `rotation-tracker/extract`,
   `rotation-tracker/backtest`). Never hardcode an experiment id.
-- **Onboarded as P9** in `../nmp-central-ai/registry/projects.yaml`. Smokes:
+- **Onboarded as P11** in `../nmp-central-ai/registry/projects.yaml`. Smokes:
   `uv run rt smoke` (MLflow) and `uv run rt db smoke` (Postgres). Check with
-  `make -C ../nmp-central-ai check ARGS="--only P9"`.
+  `make -C ../nmp-central-ai check ARGS="--only P11"`.
 - **Postgres** is database `rotation`, schema `rt`. `rotation_owner` runs the
   pipeline, `rotation_ro` is for analysis, and the superuser URL is for
   `rt db migrate` only. URLs come from `../nmp-central-ai/.db-urls.env` into `.env`.
@@ -136,11 +141,16 @@ src/rotation_tracker/
   topics.py          topic/v1 chapter tags and the cut of a transcript at its chapters
   pipeline.py        catalog → refine → pick → ingest → sync, status
   tracking.py        MLflow runs (experiment rotation-tracker/ingest)
+  serving/           the viewer's read-only API (`rt serve`): app.py routes, store.py
+                     reads, themes.py the chart's keyword themes (themes/v0, not signals)
   cli.py             `rt`
+frontend/            the viewer: React + Vite on the house UI, design lint, vitest
 sql/                 001_rt.sql: schema rt, idempotent
-tests/               pick rule, topic tags, chapter cut (offline)
+tests/               pick rule, topic tags, chapter cut, viewer API (offline)
 ai_specs/            sNN_*.md specs, the plan of record
-.lavish/             review artifacts (house.css copied from nmp-central-ai)
+.lavish/             house.css, project.css (hue 15) and fonts from nmp-central-ai;
+                     review artifacts
+showcase.yaml        what a portfolio-site build of the viewer may freeze, and what it may not
 .rt/                 caches and seed data, gitignored
 ```
 
@@ -152,4 +162,3 @@ one module for every model call), `signal/`, `backtest/`, `listener/`.
 - Model and runtime for rotation-call extraction, and its billing.
 - Taxonomy: which sector, industry, style and theme nodes, and their proxies.
 - Drawdown threshold, horizons, cost model and holdout date for the backtest.
-- `ui.hue` for this project's artifacts (only 15 is free, next to the status red).

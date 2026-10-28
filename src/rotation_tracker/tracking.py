@@ -12,7 +12,7 @@ from typing import Any
 from rotation_tracker.config import ROOT, settings
 
 
-def _git_sha() -> str:
+def git_sha() -> str:
     try:
         return (
             subprocess.run(
@@ -32,7 +32,7 @@ def log_run(name: str, kind: str, params: Mapping[str, Any], metrics: Mapping[st
     mlflow.set_experiment(s.experiment)
     tags = {
         "project": "rotation-tracker",
-        "git_sha": _git_sha(),
+        "git_sha": git_sha(),
         "env": "local",
         "billing": "supadata",
         "kind": kind,
