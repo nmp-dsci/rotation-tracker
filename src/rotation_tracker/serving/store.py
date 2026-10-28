@@ -1,7 +1,7 @@
 """What the viewer reads. Every method is a read:
 
 - Postgres schema ``rt`` as ``rotation_ro`` (read-only transactions);
-- transcript·lab's Chroma store, opened read-only, never written;
+- transcript·lab's Chroma store, through its SQLite file opened read-only (``chroma.py``);
 - the central MLflow, for run links and the ingest runs' metrics;
 - Supadata's free ``GET /v1/me``, for the credit balance (never a key).
 """
@@ -23,9 +23,10 @@ from typing import Any
 import psycopg
 from psycopg.rows import dict_row
 
-from rotation_tracker import db, pipeline, supadata, transcript_lab
+from rotation_tracker import db, pipeline, supadata
 from rotation_tracker.config import ROOT, settings
 from rotation_tracker.serving import themes
+from rotation_tracker.serving.chroma import Chroma
 from rotation_tracker.tracking import git_sha
 
 SPEC = ROOT / "ai_specs" / "s00_data_pipeline.md"
@@ -232,8 +233,7 @@ class Store:
         self.mlflow = Mlflow()
         self._credits = _Cached(600, _credits)
         self._themes = _Cached(600, self._theme_counts)  # the corpus changes once a week
-        self._corpus: transcript_lab.Corpus | None = None
-        self._lock = threading.Lock()
+        self.chroma = Chroma(settings().transcript_lab_chroma)
         self.code_sha = git_sha()
 
     # ── plumbing ──────────────────────────────────────────────────────────────
@@ -241,15 +241,6 @@ class Store:
     def _con(self) -> Iterator[psycopg.Connection]:
         with db.connect(readonly=True) as con:
             yield con
-
-    def corpus(self) -> transcript_lab.Corpus:
-        with self._lock:
-            if self._corpus is None:
-                self._corpus = transcript_lab.Corpus()
-            return self._corpus
-
-    def _chunk_col(self) -> Any:
-        return self.corpus().client.get_collection("transcript_chunks")
 
     # ── routes ────────────────────────────────────────────────────────────────
     def health(self) -> dict[str, Any]:
@@ -268,7 +259,7 @@ class Store:
             "ok": True,
             "code_sha": self.code_sha,
             "postgres": check(pg),
-            "chroma": check(lambda: self.corpus().raw_col.count()),
+            "chroma": check(lambda: self.chroma.count("raw_transcripts")),
             "mlflow": "up" if self.mlflow.up else "down",
         }
 
@@ -333,7 +324,7 @@ class Store:
         for s in sections:
             s["paragraphs"] = paragraphs(segments, s["start_s"] or 0.0, s["end_s"])
         try:
-            n_chunks = len(self._chunk_col().get(where={"video_id": video_id}, include=[])["ids"])
+            n_chunks = self.chroma.count_where("transcript_chunks", "video_id", [video_id])
         except Exception:
             n_chunks = None
         return {
@@ -352,17 +343,7 @@ class Store:
         }
 
     def chunks(self, video_id: str) -> list[dict[str, Any]]:
-        r = self._chunk_col().get(where={"video_id": video_id}, include=["documents", "metadatas"])
-        rows = [
-            {
-                "idx": m.get("chunk_index"),
-                "start_s": m.get("start_seconds"),
-                "end_s": m.get("end_seconds"),
-                "text": d,
-            }
-            for d, m in zip(r["documents"], r["metadatas"], strict=True)
-        ]
-        return sorted(rows, key=lambda c: c["idx"] or 0)
+        return self.chroma.chunks(video_id)
 
     def search(self, q: str, topics: list[str], order: str, limit: int) -> dict[str, Any]:
         q = q.strip()
@@ -485,15 +466,12 @@ class Store:
             pick_ids = [r[0] for r in con.execute("SELECT video_id FROM rt.weekly_picks")]
         chroma: dict[str, Any] = {"path": str(settings().transcript_lab_chroma)}
         try:
-            c = self.corpus()
-            chroma["raw_total"] = c.raw_col.count()
-            chroma["raw_ours"] = len(
-                c.raw_col.get(ids=[f"raw_transcript:{v}" for v in pick_ids], include=[])["ids"]
-            )
-            col = self._chunk_col()
-            chroma["chunks_total"] = col.count()
-            chroma["chunks_ours"] = len(
-                col.get(where={"video_id": {"$in": pick_ids}}, include=[])["ids"]
+            raw = [f"raw_transcript:{v}" for v in pick_ids]
+            chroma["raw_total"] = self.chroma.count("raw_transcripts")
+            chroma["raw_ours"] = self.chroma.count("raw_transcripts", raw)
+            chroma["chunks_total"] = self.chroma.count("transcript_chunks")
+            chroma["chunks_ours"] = self.chroma.count_where(
+                "transcript_chunks", "video_id", pick_ids
             )
         except Exception as e:
             chroma["error"] = f"{type(e).__name__}: {str(e)[:160]}"
