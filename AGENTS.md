@@ -16,8 +16,7 @@ style, theme or stock and into another), and tests whether names sold down by
 a rotation rebound when it ends. Four stages: **extract → signal → backtest →
 listener**. `README.md` has the thesis and the roadmap.
 
-**Status: M2, extraction (s02); the backfill of every week is running, without a
-gate.** Source: FX Evolution's weekly market wrap, 2023 onwards, one video per week
+**Status: M2, extraction (s02); every week is backfilled (199/199, no gate).** Source: FX Evolution's weekly market wrap, 2023 onwards, one video per week
 (`pick/v1`). Read `ai_specs/s00_data_pipeline.md` before changing ingestion,
 `ai_specs/s01_viewer.md` before changing the viewer, and `ai_specs/s02_text_mining.md`
 before changing the miner, its prompt or the asset map.
@@ -179,4 +178,4 @@ Still to come, per the roadmap: `market/` (prices), `signal/`, `backtest/`, `lis
 - s02: adding experiment `rotation-tracker/mining` to P11 in
   `../nmp-central-ai/registry/projects.yaml` (it lists only `rotation-tracker/ingest`).
 - Decided 28 Oct 2026: the rotation definition stays strict (prompt `3ab4d33`), to improve
-  later; every remaining week is backfilled at effort `high`, without a gate, and is running.
+  later; every remaining week was backfilled at effort `high`, without a gate, and is done.
