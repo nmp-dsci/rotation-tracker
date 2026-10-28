@@ -32,9 +32,9 @@ scope starts there.
 |---|---|---|---|
 | ① catalog | `rt catalog` | `rt.videos` (all three tabs) | free |
 | ② refine | `rt refine --seed .rt/seed/exact_sample.json` | `rt.videos.published_at` back to the first week | free; stops on a bot-check, re-run resumes |
-| ③ pick | `rt pick` | `rt.weekly_picks` | free |
+| ③ pick | `rt pick` | `rt.weekly_picks` | free; skips and lists any week whose window may hold an undated Videos-tab upload (run `refine`), leaving its existing pick untouched |
 | ④ ingest | `rt ingest --limit 8 --max-credits 8` (pilot), then `rt ingest --max-credits 205` | transcript·lab Chroma, `rt.ingest_log`, an MLflow run | 1 Supadata credit per video |
-| ⑤ sync | `rt sync` | `rt.transcripts`, `rt.chapters`, `rt.transcript_chapters` | free |
+| ⑤ sync | `rt sync` | `rt.transcripts`, `rt.chapters`, `rt.transcript_chapters` | free; a bot-check on a video's chapter lookup skips that video, lists it, and exits non-zero so a re-run picks it up |
 | status | `rt status`, `rt credits` | — | free |
 
 ## Guards
