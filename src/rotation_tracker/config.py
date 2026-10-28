@@ -47,6 +47,7 @@ class Settings:
     admin_database_url: str
     mlflow_tracking_uri: str
     supadata_keys: tuple[str, ...]
+    anthropic_api_key: str = ""
     channel: str = "@fxevolutionvideo"
     channel_id: str = "UCvJZEG5x-DVYZKTz--pS39w"
     channel_name: str = "FX Evolution - Trading Academy"
@@ -56,6 +57,7 @@ class Settings:
     transcript_lab_root: Path = ROOT.parent / "transcript-rag-agent"
     transcript_lab_chroma: Path = ROOT.parent / "transcript-rag-agent" / ".yt-agent" / "chroma"
     experiment: str = "rotation-tracker/ingest"
+    mining_experiment: str = "rotation-tracker/mining"
 
 
 @lru_cache(maxsize=1)
@@ -68,6 +70,7 @@ def settings() -> Settings:
         admin_database_url=e.get("ROTATION_ADMIN_DATABASE_URL", ""),
         mlflow_tracking_uri=e.get("MLFLOW_TRACKING_URI", "http://localhost:5000"),
         supadata_keys=tuple(supadata_keys(e)),
+        anthropic_api_key=e.get("ANTHROPIC_API_KEY", ""),
         first_week_friday=date.fromisoformat(e.get("RT_FIRST_WEEK_FRIDAY", "2023-01-06")),
         cache_dir=Path(e.get("RT_CACHE_DIR", str(ROOT / ".rt"))),
         transcript_lab_root=tra,

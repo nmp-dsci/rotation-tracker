@@ -70,4 +70,45 @@ describe('every page renders from the API', () => {
     expect(screen.getByText('98 / 100 left')).toBeTruthy();
     expect(screen.getByText('@example')).toBeTruthy();
   });
+
+  it('mentions: the quote, its play, the asset chips and the timestamp link', async () => {
+    open('/mentions');
+    expect(await screen.findByText(/money leaves widgets for gadgets/)).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Widgets/ }).getAttribute('href')).toBe('/assets/theme%3Awidgets');
+    expect(screen.getByText('? unknown')).toBeTruthy();
+    expect(screen.getByRole('link', { name: '▶ 2:05' }).getAttribute('href')).toContain('t=125s');
+  });
+
+  it('assets: ranked with layer and proxy', async () => {
+    open('/assets');
+    expect(await screen.findByRole('link', { name: 'Widgets' })).toBeTruthy();
+    expect(screen.getByText('WDGT')).toBeTruthy();
+  });
+
+  it('an asset: the strip marks a bearish week and an unmined one', async () => {
+    open('/assets/theme%3Awidgets');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Widgets' })).toBeTruthy();
+    expect(screen.getByLabelText(/23 Oct 2026: 1 bearish, 1 rotation call/)).toBeTruthy();
+    expect(screen.getByLabelText(/16 Oct 2026: not mined yet/)).toBeTruthy();
+  });
+
+  it('an asset not in the map says so', async () => {
+    open('/assets/theme%3Anope');
+    expect(await screen.findByText(/is not an asset in assets\/v1/)).toBeTruthy();
+  });
+
+  it('miner: the targets show a missed measure', async () => {
+    open('/mining');
+    expect(await screen.findByRole('heading', { name: 'Targets' })).toBeTruthy();
+    expect(screen.getByText('✕ 1 missed')).toBeTruthy();
+    expect(screen.getByText('✕ missed')).toBeTruthy();
+    expect(screen.getByText('Asset accuracy')).toBeTruthy();
+    expect(screen.getByText('“gadgets”')).toBeTruthy();
+  });
+
+  it('spot-check: read-only without --label', async () => {
+    open('/label');
+    expect(await screen.findByText(/This viewer cannot record/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Right/ })).toBeNull();
+  });
 });

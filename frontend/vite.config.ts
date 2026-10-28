@@ -9,6 +9,8 @@ const API = process.env.VITE_API_PROXY ?? 'http://127.0.0.1:8089';
 export default defineConfig({
   base: process.env.SHOWCASE_BASE ?? '/',
   plugins: [react()],
+  // Built files go to /static/, not Vite's default /assets/: /assets/:id is a viewer page (s02).
+  build: { assetsDir: 'static' },
   server: {
     host: '127.0.0.1',
     port: 5178,

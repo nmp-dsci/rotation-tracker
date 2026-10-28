@@ -25,7 +25,7 @@ from psycopg.rows import dict_row
 
 from rotation_tracker import db, pipeline, supadata
 from rotation_tracker.config import ROOT, settings
-from rotation_tracker.serving import themes
+from rotation_tracker.serving import mining, themes
 from rotation_tracker.serving.chroma import Chroma
 from rotation_tracker.tracking import git_sha
 
@@ -158,6 +158,7 @@ class Mlflow:
     def __init__(self) -> None:
         self._up = _Cached(30, self._health)
         self._exp = _Cached(300, self._experiment)
+        self._mining = _Cached(300, lambda: self._experiment(settings().mining_experiment))
 
     def _call(self, path: str, body: dict[str, Any] | None = None) -> Any:
         base = settings().mlflow_tracking_uri.rstrip("/")
@@ -173,10 +174,21 @@ class Mlflow:
         self._call("/health")
         return True
 
-    def _experiment(self) -> str:
-        q = urllib.parse.quote(settings().experiment)
+    def _experiment(self, name: str | None = None) -> str:
+        q = urllib.parse.quote(name or settings().experiment)
         doc = self._call(f"/api/2.0/mlflow/experiments/get-by-name?experiment_name={q}")
         return str(doc["experiment"]["experiment_id"])
+
+    def mining_urls(self, run_ids: list[str | None]) -> dict[str, Any]:
+        """Links into the mining experiment: the experiment and each run that logged."""
+        exp, _ = self._mining.get() if self.up else (None, None)
+        base = settings().mlflow_tracking_uri.rstrip("/")
+        if not exp:
+            return {"experiment": None, "runs": {}}
+        return {
+            "experiment": f"{base}/#/experiments/{exp}",
+            "runs": {r: f"{base}/#/experiments/{exp}/runs/{r}" for r in run_ids if r},
+        }
 
     @property
     def up(self) -> bool:
@@ -491,3 +503,29 @@ class Store:
             "decisions": decisions(),
             "experiment": settings().experiment,
         }
+
+    # ── s02: the miner ──────────────────────────────────────────────────────────────────
+    def mentions(self, **filters: Any) -> dict[str, Any]:
+        with self._con() as con:
+            return mining.mentions(con, **filters)
+
+    def assets(self, kind: str | None, q: str | None) -> dict[str, Any]:
+        with self._con() as con:
+            return mining.assets(con, kind, q)
+
+    def asset(self, asset_id: str) -> dict[str, Any] | None:
+        with self._con() as con:
+            return mining.asset(con, asset_id)
+
+    def mining(self) -> dict[str, Any]:
+        with self._con() as con:
+            out = mining.summary(con)
+        out["mlflow"] = self.mlflow.mining_urls(
+            [r["mlflow_run_id"] for r in out["runs"]]
+            + ([out["eval"]["mlflow_run_id"]] if out["eval"] else [])
+        )
+        return out
+
+    def spot_checks(self) -> list[dict[str, Any]]:
+        with self._con() as con:
+            return mining.spot_checks(con)

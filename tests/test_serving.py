@@ -105,6 +105,21 @@ class FakeStore:
     def pipeline(self) -> dict[str, Any]:
         return {}
 
+    def mentions(self, **filters: Any) -> dict[str, Any]:
+        return {}
+
+    def assets(self, kind: str | None, q: str | None) -> dict[str, Any]:
+        return {}
+
+    def asset(self, asset_id: str) -> dict[str, Any] | None:
+        return None
+
+    def mining(self) -> dict[str, Any]:
+        return {}
+
+    def spot_checks(self) -> list[dict[str, Any]]:
+        return []
+
 
 def test_api_routes_validate_and_404(tmp_path: Any) -> None:
     c = TestClient(create_app(FakeStore(), dist=tmp_path))
@@ -119,10 +134,11 @@ def test_api_routes_validate_and_404(tmp_path: Any) -> None:
 
 
 def test_built_frontend_is_served_with_a_spa_fallback(tmp_path: Any) -> None:
-    (tmp_path / "assets").mkdir()
+    (tmp_path / "static").mkdir()
     (tmp_path / "index.html").write_text("<div id=root></div>")
-    (tmp_path / "assets" / "app.js").write_text("console.log(1)")
+    (tmp_path / "static" / "app.js").write_text("console.log(1)")
     c = TestClient(create_app(FakeStore(), dist=tmp_path))
     assert c.get("/weeks/AAAAAAAAAAA").text == "<div id=root></div>"
-    assert c.get("/assets/app.js").text == "console.log(1)"
+    assert c.get("/static/app.js").text == "console.log(1)"
+    assert c.get("/assets/stock:BRK.B").text == "<div id=root></div>"  # a page, not a file
     assert c.get("/api/nothing").status_code == 404

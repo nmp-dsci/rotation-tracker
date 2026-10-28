@@ -1,0 +1,138 @@
+# assets/v1: the hand-kept part of the stock layer.
+#
+# The listings give every US ticker and, for S&P 500 and Nasdaq-100 members, a company name.
+# This file adds what they cannot: how he actually says a name (nicknames, short forms,
+# auto-caption mishearings), and which generated names are also ordinary words. New entries come
+# from the unknown-asset queue (`rt assets unknown`); each one should get a resolver test.
+version: assets/v1
+
+# ticker → extra spoken forms (normalised: lower case, words only).
+stocks:
+  NVDA: [nvidia, invidia, envidia, jensen, nvidia stock]
+  TSLA: [tesla, tesla stock, elon's company]
+  AAPL: [apple stock, apple shares, aapl]
+  MSFT: [microsoft, msft]
+  AMZN: [amazon, amzn]
+  GOOGL: [google, alphabet, googl, goog]
+  META: [meta, facebook, fb]
+  NFLX: [netflix]
+  AMD: [amd, advanced micro devices, advanced micro]
+  AVGO: [broadcom, avgo]
+  PLTR: [palantir, pltr]
+  INTC: [intel stock, intel shares]
+  MU: [micron]
+  ARM: [arm holdings, arm stock]
+  TSM: [tsmc, taiwan semi, taiwan semiconductor, taiwan semiconductors, tsm]
+  ASML: [asml]
+  SMCI: [super micro, supermicro, super micro computer, smci]
+  DELL: [dell]
+  ORCL: [oracle stock, oracle shares]
+  CRM: [salesforce]
+  ADBE: [adobe]
+  NOW: [servicenow, service now]
+  SNOW: [snowflake]
+  CRWD: [crowdstrike, crowd strike]
+  PANW: [palo alto, palo alto networks]
+  HOOD: [robinhood, robin hood, hood]
+  COIN: [coinbase, coin base]
+  MSTR: [microstrategy, micro strategy, strategy inc, saylor's company, mstr]
+  MARA: [marathon digital, marathon, mara]
+  RIOT: [riot platforms, riot]
+  IREN: [iren, iris energy]
+  CLSK: [cleanspark, clean spark]
+  GME: [gamestop, game stop]
+  AMC: [amc, amc entertainment]
+  SOFI: [sofi]
+  PYPL: [paypal]
+  XYZ: [block stock, square]
+  UBER: [uber]
+  ABNB: [airbnb]
+  SHOP: [shopify]
+  RBLX: [roblox]
+  BABA: [alibaba]
+  JPM: [jp morgan, jpmorgan, jpm, chase]
+  GS: [goldman, goldman sachs]
+  MS: [morgan stanley]
+  BAC: [bank of america, bofa]
+  WFC: [wells fargo]
+  C: [citi, citigroup, citibank]
+  BRK.B: [berkshire, berkshire hathaway, buffett's company]
+  XOM: [exxon, exxonmobil, exxon mobil]
+  CVX: [chevron]
+  OXY: [occidental, occidental petroleum]
+  UNH: [unitedhealth, united health, unitedhealthcare]
+  LLY: [eli lilly, lilly]
+  NVO: [novo nordisk, novo]
+  PFE: [pfizer]
+  MRNA: [moderna]
+  WMT: [walmart, wal mart]
+  COST: [costco]
+  TGT: [target stock, target shares]
+  HD: [home depot]
+  DIS: [disney]
+  BA: [boeing]
+  CAT: [caterpillar]
+  F: [ford, ford motor]
+  GM: [general motors]
+  RIVN: [rivian]
+  LCID: [lucid]
+  NIO: [nio]
+  IONQ: [ionq, ion q]
+  RGTI: [rigetti]
+  QBTS: [d wave, dwave, d wave quantum]
+  OKLO: [oklo]
+  SMR: [nuscale, new scale]
+  CCJ: [cameco]
+  CEG: [constellation energy]
+  VST: [vistra]
+  VRT: [vertiv]
+  FCX: [freeport, freeport mcmoran]
+  NEM: [newmont]
+  V: [visa stock]
+  MA: [mastercard]
+  KO: [coca cola, coke]
+  PEP: [pepsi, pepsico]
+  MCD: [mcdonald's, mcdonalds]
+  SBUX: [starbucks]
+  NKE: [nike]
+  LULU: [lululemon]
+  CMG: [chipotle]
+  INTU: [intuit]
+  CSCO: [cisco]
+  IBM: [ibm]
+  QCOM: [qualcomm]
+  TXN: [texas instruments]
+  ANET: [arista, arista networks]
+  APP: [applovin, app lovin]
+  CVNA: [carvana]
+  RDDT: [reddit]
+  CRWV: [coreweave, core weave]
+  NBIS: [nebius]
+  ALAB: [astera labs]
+  RKLB: [rocket lab]
+  ASTS: [ast spacemobile, ast space mobile]
+  SNDK: [sandisk]
+  WDC: [western digital]
+  STX: [seagate]
+  CRCL: [circle]
+  BMNR: [bitmine]
+  GLXY: [galaxy digital]
+  SPCX: [spacex, space x]
+
+# Generated company names that are also ordinary words. They resolve only when the extractor's
+# ticker guess names the same stock.
+needs_cue: [target, apple, visa, block, ball, oracle, intel, gap, best buy, match, amazon basics,
+            general mills, progressive, discovery, chase, carrier, corning, booking, salesforce,
+            arm, coherent, crown, dollar general, dollar tree, energy transfer, fox, global payments,
+            hess, illumina, international paper, kellanova, loews, masco, news corp, nucor, ross,
+            snap, southern, sun, the trade desk, trade desk, union pacific, united, ventas, vistra,
+            waters, wells, xylem, zoom, regions, citizens, fifth third, truist, keycorp, coin, hood,
+            circle, strategy, square, sofi, riot, marathon, nio, ford, coke, novo, lilly,
+            # generated one-word names that are also English words (checked against a dictionary)
+            aes, align, apa, arch, atmos, bloom, boston, cardinal, carnival, charter, cincinnati,
+            constellation, devon, dominion, dover, duke, expand, ferguson, flex, franklin, mosaic,
+            news, principal, prudential, republic, tapestry, tyler, vertex, vulcan, workday, zebra]
+
+# Words that are never an asset, however they look (mishearings of market words).
+not_assets: [brett's, bretts, breadth, marcus, bookcase, bull case, bear case, the channel,
+             sector rotation, rotation]

@@ -1,6 +1,7 @@
 """MLflow runs on the central server (``MLFLOW_TRACKING_URI``).
 
-Experiment ``rotation-tracker/ingest``; the id is never hardcoded.
+Experiments ``rotation-tracker/ingest`` and ``rotation-tracker/mining``; ids are never
+hardcoded.
 """
 
 from __future__ import annotations
@@ -24,17 +25,25 @@ def git_sha() -> str:
         return "unknown"
 
 
-def log_run(name: str, kind: str, params: Mapping[str, Any], metrics: Mapping[str, float]) -> str:
+def log_run(
+    name: str,
+    kind: str,
+    params: Mapping[str, Any],
+    metrics: Mapping[str, float],
+    *,
+    experiment: str | None = None,
+    billing: str = "supadata",
+) -> str:
     import mlflow
 
     s = settings()
     mlflow.set_tracking_uri(s.mlflow_tracking_uri)
-    mlflow.set_experiment(s.experiment)
+    mlflow.set_experiment(experiment or s.experiment)
     tags = {
         "project": "rotation-tracker",
         "git_sha": git_sha(),
         "env": "local",
-        "billing": "supadata",
+        "billing": billing,
         "kind": kind,
     }
     with mlflow.start_run(run_name=name, tags=tags) as run:

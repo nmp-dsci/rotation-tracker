@@ -12,6 +12,12 @@ from rotation_tracker.config import settings
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 db_app = typer.Typer(no_args_is_help=True)
 app.add_typer(db_app, name="db", help="Schema and connectivity.")
+assets_app = typer.Typer(no_args_is_help=True)
+app.add_typer(assets_app, name="assets", help="assets/v1: the asset map mentions resolve to.")
+mine_app = typer.Typer(no_args_is_help=True)
+app.add_typer(mine_app, name="mine", help="s02: mine the weekly wraps for asset calls.")
+gold_app = typer.Typer(no_args_is_help=True)
+app.add_typer(gold_app, name="gold", help="s02: the gold set the miner is measured against.")
 
 
 @db_app.command("migrate")
@@ -28,6 +34,236 @@ def db_smoke() -> None:
         with db.connect(readonly=ro) as con:
             row = con.execute("SELECT current_user, count(*) FROM rt.videos").fetchone()
             typer.echo(f"{'ro   ' if ro else 'owner'} {row}")
+
+
+@assets_app.command("seed")
+def assets_seed(
+    local: Path | None = typer.Option(
+        None, help="Read <name>.{html,json,txt} for sp500, ndx, nasdaqlisted, otherlisted here."
+    ),
+) -> None:
+    """Build rt.assets and rt.aliases from assets/*.yaml and the public listings (free)."""
+    from rotation_tracker.mining import universe
+
+    with db.connect() as con:
+        report = universe.seed(con, local=local, log=typer.echo)
+    for k, v in report.items():
+        typer.echo(f"{k:15s} {v}")
+
+
+def _pick_weeks(
+    con: object,
+    weeks: str | None,
+    gold: bool,
+    all_: bool,
+    since: str | None,
+    skip_done: bool,
+    limit: int | None,
+) -> list[str]:
+    from datetime import date
+
+    from rotation_tracker.mining import corpus, run
+
+    ids = [w for w in (weeks or "").split(",") if w]
+    if gold:
+        ids += [v for (v,) in con.execute("SELECT video_id FROM rt.gold_weeks")]  # type: ignore[attr-defined]
+    if not (ids or all_ or since):
+        raise typer.BadParameter("name the weeks: --weeks, --gold, --since or --all")
+    chosen = corpus.weeks(
+        con,  # type: ignore[arg-type]
+        since=date.fromisoformat(since) if since else None,
+        ids=ids or None,
+    )
+    out = [v for v, _ in chosen]
+    if skip_done:
+        done = run.current_weeks(con)  # type: ignore[arg-type]
+        out = [v for v in out if v not in done]
+    return out[:limit] if limit else out
+
+
+@mine_app.command("run")
+def mine_run(
+    engine: str = typer.Option("llm", help="llm (play/v1) or regex (play/v0, free)."),
+    weeks: str | None = typer.Option(None, help="Comma-separated video ids."),
+    gold: bool = typer.Option(False, help="The twelve gold weeks (rt.gold_weeks)."),
+    all_: bool = typer.Option(False, "--all", help="Every week with a transcript."),
+    since: str | None = typer.Option(None, help="Weeks whose Friday is on or after this date."),
+    skip_done: bool = typer.Option(False, help="Leave out weeks that already have play/v1 rows."),
+    limit: int | None = typer.Option(None, help="At most this many weeks, newest first."),
+    batch: bool = typer.Option(False, help="Submit through the Message Batches API (half price)."),
+    purpose: str = typer.Option("dev", help="dev, gold, eval, agreement, backfill, new-week."),
+    effort: str = typer.Option("high", help="Claude effort: low, medium, high, xhigh, max."),
+    version: str | None = typer.Option(None, help="Extractor version (default play/v1)."),
+    max_usd: float = typer.Option(
+        ..., help="Hard cap in dollars; the run refuses an estimate over it."
+    ),
+) -> None:
+    """Run an extractor over weeks and write rt.mentions (versioned, never overwritten)."""
+    from rotation_tracker.mining import run
+
+    with db.connect() as con:
+        ids = _pick_weeks(con, weeks, gold, all_, since, skip_done, limit)
+        if not ids:
+            typer.echo("no weeks to mine")
+            return
+        if engine == "regex":
+            summary = run.mine_regex(con, ids, purpose="baseline", log=typer.echo)
+        else:
+            spec = run.Spec(
+                purpose=purpose,
+                effort=effort,
+                mode="batch" if batch else "interactive",
+                max_usd=max_usd,
+                version=version or run.PRODUCTION,
+            )
+            if batch:
+                run.submit_batch(con, spec, ids, log=typer.echo)
+                return
+            summary = run.mine_interactive(con, spec, ids, log=typer.echo)
+    _print_summary(summary)
+
+
+@mine_app.command("collect")
+def mine_collect(run_id: str = typer.Argument(..., help="A batch run's id.")) -> None:
+    """Write a finished batch's results (prints the state while it is still processing)."""
+    from rotation_tracker.mining import run
+
+    with db.connect() as con:
+        summary = run.collect(con, run_id, log=typer.echo)
+    if summary is None:
+        raise typer.Exit(2)
+    _print_summary(summary)
+
+
+@mine_app.command("resolve")
+def mine_resolve(
+    all_: bool = typer.Option(
+        False, "--all", help="Also re-resolve model-extracted assets that already resolved."
+    ),
+) -> None:
+    """Resolve unknown and ambiguous assets again after editing assets/*.yaml and re-seeding."""
+    from rotation_tracker.mining import run
+
+    with db.connect() as con:
+        run.reresolve(con, every=all_, log=typer.echo)
+
+
+@assets_app.command("unknown")
+def assets_unknown(limit: int = typer.Option(40, help="Rows to show.")) -> None:
+    """The unknown-asset queue: spoken forms no alias or ticker resolved, most frequent first."""
+    with db.connect(readonly=True) as con:
+        rows = con.execute(
+            """SELECT a.spoken, a.kind_guess, a.ticker_guess, count(*) AS n,
+                      count(DISTINCT m.video_id) AS weeks
+               FROM rt.mention_assets a JOIN rt.mentions m ON m.id = a.mention_id
+               JOIN rt.mine_runs r USING (run_id)
+               WHERE a.asset_id IS NULL AND r.engine = 'llm'
+               GROUP BY 1, 2, 3 ORDER BY n DESC, 1 LIMIT %s""",
+            (limit,),
+        ).fetchall()
+    for spoken, kind, ticker, n, weeks in rows:
+        typer.echo(f"{n:4d} {weeks:3d}w  {kind or '-':9s} {ticker or '-':10s} {spoken}")
+
+
+@gold_app.command("pick")
+def gold_pick() -> None:
+    """Choose the twelve gold weeks (three per year, fixed seed); a no-op once chosen."""
+    from rotation_tracker.mining import gold
+
+    with db.connect() as con:
+        for v in gold.pick(con):
+            typer.echo(v)
+
+
+@gold_app.command("second-read")
+def gold_second_read(
+    effort: str = typer.Option("high", help="Claude effort for the verifier."),
+) -> None:
+    """Read every rotation mention of the gold pass again, independently (rt.labels)."""
+    from rotation_tracker.mining import gold
+
+    with db.connect() as con:
+        run_id = gold.gold_run(con)
+        if run_id is None:
+            raise typer.BadParameter("no finished gold/v1 run: rt mine run --gold --purpose gold")
+        gold.second_read(con, run_id, effort=effort, log=typer.echo)
+
+
+@gold_app.command("sample")
+def gold_sample() -> None:
+    """Draw the owner's fifty spot-checks from the gold pass (rotation first); fixed once drawn."""
+    from rotation_tracker.mining import gold
+
+    with db.connect() as con:
+        run_id = gold.gold_run(con)
+        if run_id is None:
+            raise typer.BadParameter("no finished gold/v1 run")
+        typer.echo(f"{gold.sample(con, run_id)} spot-checks queued from {run_id}")
+
+
+@mine_app.command("eval")
+def mine_eval(
+    run_id: str | None = typer.Option(
+        None, help="The play/v1 run to score (default: newest eval)."
+    ),
+    agreement: str | None = typer.Option(None, help="A second play/v1 run for run-to-run F1."),
+) -> None:
+    """Score a run against the gold set; log to MLflow; print the targets met and missed."""
+    import json
+
+    from rotation_tracker.mining import evaluate, gold
+    from rotation_tracker.mining.resolve import load
+
+    def newest(where: str) -> str | None:
+        row = con.execute(
+            f"SELECT run_id FROM rt.mine_runs WHERE status = 'done' AND {where} "
+            "ORDER BY started_at DESC LIMIT 1"
+        ).fetchone()
+        return row[0] if row else None
+
+    with db.connect() as con:
+        gold_run = gold.gold_run(con)
+        run_id = run_id or newest("purpose = 'eval' AND extractor_version = 'play/v1'")
+        if not (gold_run and run_id):
+            raise typer.BadParameter("need a finished gold/v1 run and a play/v1 eval run")
+        agreement = agreement or newest("purpose = 'agreement'")
+        m = evaluate.evaluate(
+            con,
+            run_id,
+            gold_run,
+            load(con),
+            baseline_run_id=newest("extractor_version = 'play/v0'"),
+            agreement_run_id=agreement,
+            log=typer.echo,
+        )
+    typer.echo(f"run {run_id} against gold {gold_run} ({m['gold']} gold, {m['pred']} predicted)")
+    typer.echo(f"{'play':10s} {'P':>6s} {'R':>6s} {'F1':>6s}   v0 P   v0 R")
+    for play, sc in m["per_play"].items():
+        b = (m.get("baseline") or {}).get("per_play", {}).get(play, {})
+
+        def f(x: object) -> str:
+            return f"{x:6.2f}" if isinstance(x, float) else f"{'—':>6s}"
+
+        typer.echo(
+            f"{play:10s} {f(sc['precision'])} {f(sc['recall'])} {f(sc['f1'])} "
+            f"{f(b.get('precision'))} {f(b.get('recall'))}"
+        )
+    for k, g in m["gate"].items():  # targets, reported only; `gate` is the stored key
+        typer.echo(
+            f"target {k:20s} {g['value']!s:8s} {g['bar']:8s} {'met' if g['pass'] else 'MISSED'}"
+        )
+    missed = sum(not g["pass"] for g in m["gate"].values())
+    met = "all met" if m["gate_pass"] else f"{missed} MISSED"
+    typer.echo(f"targets {met}; agreement {m.get('agreement')}")
+    typer.echo(json.dumps({"confusion": m["play_confusion"], "labels": m["labels"]}))
+
+
+def _print_summary(summary: dict[str, object]) -> None:
+    for k in ("run_id", "extractor_version", "purpose", "weeks_done", "weeks_failed", "mentions",
+              "dropped", "dropped_rate", "unknown_rate", "input_tokens", "output_tokens",
+              "cache_read_tokens", "usd", "mlflow_run_id"):  # fmt: skip
+        if k in summary:
+            typer.echo(f"{k:18s} {summary[k]}")
 
 
 @app.command()
@@ -125,9 +361,17 @@ def credits() -> None:
 def serve(
     port: int = typer.Option(8089, help="Port on 127.0.0.1."),
     reload: bool = typer.Option(False, help="Reload on code changes (development)."),
+    label: bool = typer.Option(
+        False, help="Turn on the one write path: your spot-checks of gold mentions (rt.labels)."
+    ),
 ) -> None:
     """The viewer: a read-only API, and the UI once `npm run build` has run in frontend/."""
+    import os
+
     import uvicorn
+
+    if label:
+        os.environ["RT_LABEL"] = "1"  # read by create_app, also in a --reload worker
 
     uvicorn.run(
         "rotation_tracker.serving.app:create_app",
@@ -141,8 +385,14 @@ def serve(
 @app.command()
 def status() -> None:
     """The funnel: listed → dated → picked → ingested → synced."""
+    from rotation_tracker.serving import mining
+
     with db.connect(readonly=True) as con:
         for k, v in pipeline.status(con).items():
             typer.echo(f"{k:15s} {v}")
+        cov = mining.summary(con)["coverage"]
     typer.echo(f"{'credits_left':15s} {supadata.credits_left()}")
+    unknown = f"{cov['unknown'] / cov['assets']:.1%}" if cov["assets"] else "-"
+    typer.echo(f"{'mined':15s} {cov['mined']} of {cov['weeks']} weeks (play/v1, today's prompt)")
+    typer.echo(f"{'mentions':15s} {cov['mentions']}, unknown assets {unknown}")
     typer.echo(f"{'chroma':15s} {settings().transcript_lab_chroma}")

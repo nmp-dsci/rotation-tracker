@@ -3,9 +3,12 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { type Health, api, useGet } from './lib/api';
 import { theme, toggleTheme } from './theme';
 
-/** The pages, in the order of the work: the wraps, what they say, how often, how it was built. */
+/** The pages, in the order of the work: the wraps, the calls mined from them, the assets they are about,
+ *  what they say, how often, how it was built. */
 const NAV: [string, string][] = [
   ['/weeks', 'Weeks'],
+  ['/mentions', 'Mentions'],
+  ['/assets', 'Assets'],
   ['/search', 'Search'],
   ['/chart', 'Chart'],
   ['/pipeline', 'Liner notes'],

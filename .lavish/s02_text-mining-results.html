@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en" data-lavish-annotate="on">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rotation tracker mining results</title>
+<link rel="stylesheet" href="house.css">
+<link rel="stylesheet" href="project.css">
+<style>
+  /* layout helpers only: every colour is a house token */
+  th{ white-space:nowrap; }
+  td code, li code, p code, dd code{ overflow-wrap:anywhere; }
+  table td.n, table th.n{ white-space:nowrap; text-align:right; font-variant-numeric:tabular-nums; }
+  .stack{ display:grid; gap:var(--s4); }
+  .stops{ display:grid; gap:var(--s4); grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr)); }
+  .stop{ display:flex; flex-direction:column; gap:var(--s2); min-width:0; }
+  .stop h3{ margin:0; display:flex; gap:var(--s2); align-items:baseline; flex-wrap:wrap; }
+  .stop .go{ font-family:var(--mono); font-size:var(--t-1); overflow-wrap:anywhere; }
+  .stop ul{ margin:0; padding-left:1.1em; }
+  .shot{ margin:0; border:1px solid var(--line-2); border-radius:var(--r); overflow:hidden; background:var(--panel); }
+  .shot img{ display:block; width:100%; height:auto; }
+  .shot figcaption{ padding:var(--s2) var(--s3); font-size:var(--t-1); color:var(--muted); border-top:1px solid var(--line); }
+  .pair{ display:grid; gap:var(--s4); grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr)); align-items:start; }
+  .pair > *{ min-width:0; }
+  .q{ font-family:var(--serif); font-style:italic; color:var(--ink); }
+  .arrow{ color:var(--muted); }
+  .up{ color:var(--accent); font-weight:600; }
+  .down{ color:var(--ink-2); font-weight:600; }
+  form.q-form{ margin:0 0 var(--s4); }
+  form.q-form label{ display:block; padding:var(--s1) 0; }
+  form.q-form textarea{ min-height:64px; width:100%; }
+  form.q-form .row{ display:flex; gap:var(--s3); align-items:center; flex-wrap:wrap; margin-top:var(--s2); }
+  .copyrow{ margin-top:var(--s4); display:flex; gap:var(--s3); align-items:center; flex-wrap:wrap; }
+  .copyrow textarea{ flex-basis:100%; }
+  .meter{ height:10px; background:var(--band); border:1px solid var(--line-2); border-radius:999px; overflow:hidden; min-width:90px; }
+  .meter > i{ display:block; height:100%; background:var(--accent); border-radius:999px; }
+  .meter.dim > i{ background:var(--line-3); }
+  table td.bar{ min-width:110px; }
+  .go-row{ display:flex; flex-wrap:wrap; gap:var(--s1) var(--s3); }
+  #history code, #built td:first-child{ white-space:nowrap; overflow-wrap:normal; }
+  #built td:first-child{ min-width:16ch; }
+  #costs td:first-child{ min-width:15ch; }
+  #plays-all td:first-child{ white-space:nowrap; }
+  #plays-all th, #plays-all td{ padding-left:var(--s2); padding-right:var(--s2); }
+  /* phone: the three-column table squeezed Evidence to a word's width; stack each step instead */
+  @media (max-width:560px){
+    #built thead{ display:none; }
+    #built tr{ display:block; border-bottom:1px solid var(--line); }
+    #built tr:last-child{ border-bottom:0; }
+    #built td{ display:block; border-bottom:0; }
+    #built td:first-child{ min-width:0; font-weight:600; padding-bottom:0; }
+    #built td:nth-child(2){ padding-top:var(--s1); padding-bottom:0; }
+  }
+  .answered .q{ margin:var(--s2) 0; }
+  @media (max-width:560px){
+    #plays-all th, #plays-all td, #costs th, #costs td{ padding-left:var(--s1); padding-right:var(--s1); }
+    #plays-all th, #costs th{ white-space:normal; overflow-wrap:normal; }
+    #costs td:first-child{ min-width:12ch; }
+  }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <span class="eyebrow">rotation-tracker · results s02 · 28 Oct 2026, updated after the backfill · branch <code>text-mining-spike</code> (not committed yet)</span>
+  <h1>The miner has read all 199 weeks: <em>every call located to the second, one target short on rotation</em></h1>
+  <p class="lede">Every piece of the plan is in place: the asset map, the regex baseline, the Claude extractor, the provenance gate, the gold set, the eval, and five new viewer pages. On the twelve gold weeks, Claude Opus 5.5 at effort high finds about 46 calls a week, drops almost none for a missing quote, and resolves 99% of the assets it names. It meets four of your five targets and misses the fifth, rotation recall, at 0.64 against 0.80: a question about what counts as rotation, which your spot-checks can settle. You chose to keep the strict definition, treat the thresholds as targets rather than a gate, and run every week. The backfill is done: 199 of 199 weeks mined, 9,933 calls, $32.75 for the 187 new weeks.</p>
+  <div class="verdict">
+    <div class="stat"><div class="n">9,933</div><div class="l">calls kept across all 199 weeks (3 dropped for an unfound quote), each with play, direction, assets, speaker and the second it was said</div></div>
+    <div class="stat accent"><div class="n">4 of 5</div><div class="l">targets met on the gold weeks. Rotation precision 0.88 ✓, asset accuracy 0.94 ✓, unknown assets 0.7% ✓, dropped quotes 0.2% ✓; <b>rotation recall 0.64 ✕</b> (target 0.80, 7 of 11 gold calls). <code>rt mine eval</code> reports them; nothing waits on them</div></div>
+    <div class="stat"><div class="n">0.89</div><div class="l">precision over all plays against gold, recall 0.75; the regex baseline manages 0.46 and 0.13. Direction right on 96% of matched calls</div></div>
+    <div class="stat accent"><div class="n">$58.61</div><div class="l">spent on Claude so far: $25.86 to build and measure (including $7.86 lost to one failed pass), then $32.75 for the backfill. The plan said ≈ $17 for the corpus</div></div>
+    <div class="stat"><div class="n">199 / 199</div><div class="l">weeks mined with the current prompt, 6 Jan 2023 to 23 Oct 2026; 1.10% of asset references still unknown after triage and a resolver fix</div></div>
+  </div>
+</header>
+
+<section id="review">
+  <span class="eyebrow">Review it in the UI</span>
+  <h2>Five stops in the viewer, about 25 minutes</h2>
+  <p class="sub">The viewer is running at <a href="http://127.0.0.1:8089/mining" target="_blank" rel="noreferrer"><code>http://127.0.0.1:8089</code></a> with spot-check recording on (<code>uv run rt serve --label</code>). If it is not, start it with that command. It shows the newest run per week made with the current prompt (<code>3ab4d33</code>): all 199 weeks, 12 from the eval run and 187 from the backfill.</p>
+  <div class="stops">
+    <div class="card stop" id="stop-miner">
+      <h3>1 · The miner <span class="badge">5 min</span></h3>
+      <a class="go" href="http://127.0.0.1:8089/mining" target="_blank" rel="noreferrer">/mining ↗</a>
+      <ul>
+        <li>The targets, play by play against gold and against the regex baseline, and the three prompts I tried, side by side. The page heads them “Targets”; nothing waits on them.</li>
+        <li>Every run with its tokens and cost, the backfill on top, linked to MLflow (<code>rotation-tracker/mining</code>).</li>
+        <li>The unknown-asset queue (132 references left, 1.10%) and what the provenance gate dropped (3).</li>
+      </ul>
+    </div>
+    <div class="card stop" id="stop-mentions">
+      <h3>2 · Mentions <span class="badge">10 min</span></h3>
+      <a class="go" href="http://127.0.0.1:8089/mentions?play=rotation" target="_blank" rel="noreferrer">/mentions?play=rotation ↗</a>
+      <ul>
+        <li>Start with the 260 rotation calls (in 138 weeks), then try <i>Flow</i> with <i>Reported</i>, and <i>Call</i>.</li>
+        <li>Each row: play and direction, ↑/↓ stance, the verbatim quote, asset chips (with the proxy that will price them), and ▶ the second on YouTube.</li>
+        <li>Check: is the asset right? Would you have called it the same play?</li>
+      </ul>
+    </div>
+    <div class="card stop" id="stop-assets">
+      <h3>3 · Assets <span class="badge">3 min</span></h3>
+      <span class="go-row"><a class="go" href="http://127.0.0.1:8089/assets" target="_blank" rel="noreferrer">/assets ↗</a><a class="go" href="http://127.0.0.1:8089/assets/commodity:gold" target="_blank" rel="noreferrer">/assets/commodity:gold ↗</a></span>
+      <ul>
+        <li>301 assets mentioned (the page lists the top 300), out of 11,774 in the map: indexes, sectors, themes, stocks, ETFs, crypto, rates, credit, commodities, FX, macro.</li>
+        <li>An asset page has a week-by-week strip: ↑ net bullish, ↓ net bearish (rotation in and out count here), each cell a link to that week's calls.</li>
+      </ul>
+    </div>
+    <div class="card rec stop" id="stop-label">
+      <h3>4 · Spot-check <span class="badge rec">your 50, ≈ 15 min</span></h3>
+      <a class="go" href="http://127.0.0.1:8089/label" target="_blank" rel="noreferrer">/label ↗</a>
+      <ul>
+        <li>All 13 gold rotation calls plus 37 others, each with the quote highlighted in its context.</li>
+        <li><b>✓ Right</b>, <b>✕ Not a mention</b>, or <b>✎ Fix</b> (play, direction, asset). Saved to <code>rt.labels</code>; yours override the model's.</li>
+        <li>Then run <code>uv run rt mine eval</code> (free) and the targets are scored against your labels.</li>
+      </ul>
+    </div>
+    <div class="card stop" id="stop-week">
+      <h3>5 · Any week <span class="badge">2 min</span></h3>
+      <a class="go" href="http://127.0.0.1:8089/mentions?week=XUdfNojnzr0" target="_blank" rel="noreferrer">/mentions?week=XUdfNojnzr0 ↗</a>
+      <ul>
+        <li>One week's calls in transcript order (31 Oct 2025 here). Each row links to the week's page and to YouTube at the quote.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="pair" style="margin-top:var(--s5)">
+    <figure class="shot"><img src="s02_shots/miner-gate.png" alt="The Miner page: 199 of 199 weeks mined, 6 Jan 2023 to 23 Oct 2026, 9,933 mentions, 1.1% of 12,024 asset references unresolved, $57.90 spent on runs, and the targets table, with four met and rotation recall missed"><figcaption>/mining · coverage, spend and the targets</figcaption></figure>
+    <figure class="shot"><img src="s02_shots/asset-gold.png" alt="The gold asset page: 759 mentions, in 193 of 199 mined weeks, 504 bullish and 219 bearish, and the week-by-week strip"><figcaption>/assets/commodity:gold · totals and the strip</figcaption></figure>
+  </div>
+</section>
+
+<section id="eval">
+  <span class="eyebrow">How good it is</span>
+  <h2>Strong on every play except where "rotation" ends</h2>
+  <p class="sub">Run <code>mine-20261028T063427-287a</code> (play/v1, prompt <code>3ab4d33</code>, effort high, Batch API) scored against the gold pass (<code>…61fe</code>, effort xhigh) after the second read's corrections, on the 12 gold weeks. A prediction matches a gold call when both quotes sit in the same section, overlap by at least 30% of the shorter, and name the same play.</p>
+  <div class="stack">
+    <div class="tablewrap"><table id="gate">
+      <thead><tr><th>Target</th><th class="n">Value</th><th>Bar</th><th>Result</th></tr></thead>
+      <tbody>
+<tr><td>Rotation precision</td><td class=n>0.88</td><td><code>&gt;= 0.85</code></td><td><span class="badge ok">✓ met</span></td></tr>
+<tr><td>Rotation recall</td><td class=n>0.64</td><td><code>&gt;= 0.8</code></td><td><span class="badge bad">✕ missed</span></td></tr>
+<tr><td>Asset accuracy (same resolved assets)</td><td class=n>0.94</td><td><code>&gt;= 0.9</code></td><td><span class="badge ok">✓ met</span></td></tr>
+<tr><td>Unknown assets</td><td class=n>0.7%</td><td><code>&lt; 10%</code></td><td><span class="badge ok">✓ met</span></td></tr>
+<tr><td>Dropped quotes (provenance gate)</td><td class=n>0.2%</td><td><code>&lt; 3%</code></td><td><span class="badge ok">✓ met</span></td></tr>
+      </tbody></table></div>
+    <div class="tablewrap"><table id="plays">
+      <thead><tr><th>Play</th><th class="n">Gold</th><th class="n">Predicted</th><th class="n">v1 P</th><th class="n">v1 R</th><th class="n">v1 F1</th><th class="n">v0 P</th><th class="n">v0 R</th></tr></thead>
+      <tbody>
+<tr><td>rotation</td><td class=n>11</td><td class=n>8</td><td class=n>0.88</td><td class=n>0.64</td><td class=n>0.74</td><td class=n>0.17</td><td class=n>0.18</td></tr>
+<tr><td>flow</td><td class=n>69</td><td class=n>56</td><td class=n>0.91</td><td class=n>0.74</td><td class=n>0.82</td><td class=n>0.44</td><td class=n>0.10</td></tr>
+<tr><td>valuation</td><td class=n>17</td><td class=n>17</td><td class=n>0.88</td><td class=n>0.88</td><td class=n>0.88</td><td class=n>0.71</td><td class=n>0.29</td></tr>
+<tr><td>technical</td><td class=n>271</td><td class=n>235</td><td class=n>0.91</td><td class=n>0.79</td><td class=n>0.85</td><td class=n>0.59</td><td class=n>0.15</td></tr>
+<tr><td>regime</td><td class=n>98</td><td class=n>75</td><td class=n>0.92</td><td class=n>0.70</td><td class=n>0.80</td><td class=n>0.35</td><td class=n>0.13</td></tr>
+<tr><td>relative</td><td class=n>35</td><td class=n>29</td><td class=n>0.97</td><td class=n>0.80</td><td class=n>0.88</td><td class=n>0.41</td><td class=n>0.37</td></tr>
+<tr><td>call</td><td class=n>32</td><td class=n>23</td><td class=n>0.87</td><td class=n>0.62</td><td class=n>0.73</td><td class=n>0.33</td><td class=n>0.06</td></tr>
+<tr><td>other</td><td class=n>125</td><td class=n>114</td><td class=n>0.79</td><td class=n>0.72</td><td class=n>0.75</td><td class=n>—</td><td class=n>0.00</td></tr>
+<tr><td><b>all plays</b></td><td class=n>658</td><td class=n>557</td><td class=n><b>0.89</b></td><td class=n><b>0.75</b></td><td class=n><b>0.81</b></td><td class=n>0.46</td><td class=n>0.13</td></tr>
+      </tbody></table></div>
+  </div>
+  <dl class="kv" style="margin-top:var(--s5)">
+    <dt>Direction right</dt><dd>96% of matched calls</dd>
+    <dt>Same assets</dt><dd>94% resolve to exactly the same set, 99% share at least one</dd>
+    <dt>Run to run</dt><dd>two runs of the same prompt on 4 weeks: F1 0.85 over all plays, 0.75 on rotation</dd>
+    <dt>Provenance</dt><dd>1 quote of 558 not found in the transcript, dropped and kept in <code>rt.mine_drops</code>; every kept quote matched exactly</dd>
+  </dl>
+</section>
+
+<section id="rotation">
+  <span class="eyebrow">The one target missed</span>
+  <h2>"Rotation" is the channel's word for a sector scoreboard, and the boundary moves</h2>
+  <p class="sub">He opens most weeks with "let's look at the rotation", then reads the day's best and worst sectors. Whether that scoreboard counts as rotation decides the rotation numbers. I tried three wordings; each moved precision and recall by ±0.2 on a dozen calls.</p>
+  <div class="tablewrap"><table id="history">
+    <thead><tr><th>Prompt</th><th class="n">Rotation pred · gold</th><th class="n">Rotation P</th><th class="n">Rotation R</th><th class="n">Run to run</th><th class="n">All plays F1</th><th>Targets</th></tr></thead>
+    <tbody>
+<tr><td><code>1cc2963</code></td><td class=n>28 · 20</td><td class=n>0.64</td><td class=n>0.90</td><td class=n>0.59</td><td class=n>0.81</td><td><span class="badge bad">✕ missed</span></td></tr>
+<tr><td><code>3ab4d33</code> (current)</td><td class=n>8 · 11</td><td class=n>0.88</td><td class=n>0.64</td><td class=n>0.75</td><td class=n>0.81</td><td><span class="badge bad">✕ missed</span></td></tr>
+<tr><td><code>c415e85</code></td><td class=n>15 · 11</td><td class=n>0.53</td><td class=n>0.73</td><td class=n>0.67</td><td class=n>0.80</td><td><span class="badge bad">✕ missed</span></td></tr>
+    </tbody></table></div>
+  <div class="hero-flags stack" style="margin-top:var(--s4)">
+    <div class="callout">
+      <h3><code>1cc2963</code>: the first prompt let the scoreboard in</h3>
+      <p>28 rotation calls on 12 weeks, precision 0.64. An independent second read of the gold set's rotation calls agreed with only 14 of 28. Typical disagreement: "let's also break down the rotation, semiconductors doing best, regional banks doing really well" is a leaderboard, not money moving.</p>
+    </div>
+    <div class="callout rec">
+      <h3><code>3ab4d33</code> (current): money or leadership has to move <span class="badge rec">kept</span></h3>
+      <p>The scoreboard goes to <code>other</code> with the <b>same ↑/↓ stance</b> on the same assets, so nothing is lost for the price test. Precision 0.88 ✓ and the most stable run to run (0.75). Recall 0.64: of 11 gold rotation calls, v1 matched 7, called 2 a different play with the same stance (a small-caps turnaround as <code>relative</code>; money sheltering in homebuilders as <code>other</code>), and skipped 2 ("they've been selling defensives… suddenly we've been buying them again"). You kept it on 28 Oct, to improve later; the backfill ran with it.</p>
+    </div>
+    <div class="callout warn">
+      <h3><code>c415e85</code>: naming turns as rotation overshot</h3>
+      <p>Recall rose to 0.73, but precision fell to 0.53 and run-to-run agreement to 0.67. I reverted to <code>3ab4d33</code> and stopped iterating: tuning against eleven labels was starting to fit noise. The gold set has now shaped two revisions, so its numbers lean optimistic. Your spot-checks are the independent check.</p>
+    </div>
+  </div>
+  <p class="small">Of the 8 rotation calls the current prompt found in the gold weeks, for a feel (quotes trimmed): <span class="q">"people are pulling money out of regional banks right now… and they're putting it into the big ones"</span> (31 Oct 2025, out of KRE into KBWB); <span class="q">"just as that peaked in 2025… a massive rotation… metals, minerals"</span> (16 Jan 2026, out of Mag 7 into XME, OIH, health care); <span class="q">"when we saw semiconductors fall, we would often see… software pick up"</span> (28 Aug 2026); <span class="q">"the market has been rotating defensive"</span> (4 Apr 2025). All 260 over the 199 weeks are at <a href="http://127.0.0.1:8089/mentions?play=rotation" target="_blank" rel="noreferrer">/mentions?play=rotation</a>.</p>
+</section>
+
+<section id="built-s">
+  <span class="eyebrow">What was built</span>
+  <h2>Nine steps against their done-when</h2>
+  <div class="tablewrap"><table id="built">
+    <thead><tr><th>Step</th><th>Status</th><th>Evidence</th></tr></thead>
+    <tbody>
+      <tr><td>1 · assets/v1</td><td><span class="badge ok">✓ done</span></td><td><code>sql/002_mining.sql</code> (11 tables); <code>rt assets seed</code>: 11,763 assets (104 curated rows in <code>assets/themes.yaml</code>, 5,883 US-listed stocks and ADRs, 5,776 ETFs), 1,551 aliases (81 resolve only with a ticker cue); 11,774 assets after the backfill's triage; all 503 S&amp;P 500 and 101 Nasdaq-100 members matched, with GICS and date added. Universe per your decision: any listed ticker, membership is a tag</td></tr>
+      <tr><td>2 · play/v0</td><td><span class="badge ok">✓ done</span></td><td>2,887 mentions over all 199 weeks in 15 s, free. Rotation in 110 weeks against 113 by keyword on the plan page</td></tr>
+      <tr><td>3 · play/v1 + 3 dev weeks</td><td><span class="badge ok">✓ done</span></td><td><code>mining/prompt.md</code> (plays, fields, ASR mishearings, ten worked examples), <code>schema.py</code>; 148 calls on 3 weeks, every quote located exactly, 1 dropped</td></tr>
+      <tr><td>4 · gold set</td><td><span class="badge warn">◐ yours to finish</span></td><td>12 weeks fixed (3 a year, seed 20261028); careful pass at xhigh: 658 calls, 0 dropped, $3.80; second read of all 13 rotation calls agrees on 8 (62%, bar 90%); <b>your 50 spot-checks: 0 of 50</b></td></tr>
+      <tr><td>5 · <code>rt mine eval</code></td><td><span class="badge ok">✓ done</span></td><td>Targets scored and logged to MLflow and <code>rt.evals</code>; four of five met, rotation recall missed. Planned as the backfill's gate; on your call they are targets the eval reports, and nothing waits on them</td></tr>
+      <tr><td>6 · backfill</td><td><span class="badge ok">✓ done</span></td><td>One Batch run, <code>mine-20261028T080435-ed1c</code>: 187 weeks, 0 failed, 12 minutes, $32.75. All 199 weeks current. See <a href="#backfill">the backfill</a></td></tr>
+      <tr><td>7 · new-week path</td><td><span class="badge warn">◐ built, untested end to end</span></td><td><code>rt mine run --since &lt;friday&gt; --purpose new-week --max-usd 1</code>; <code>rt status</code> shows coverage and the unknown rate. Waits for the next pick (Friday 30 Oct); ≈ 17¢ a week at effort high via Batch, ≈ 34¢ interactive</td></tr>
+      <tr><td>8 · viewer pages</td><td><span class="badge ok">✓ done</span></td><td><code>/mentions</code>, <code>/assets</code>, <code>/assets/:id</code>, <code>/mining</code>, <code>/label</code>; Postgres only; 17 frontend tests, design lint clean; quote-bearing routes marked private in <code>showcase.yaml</code>. Built files moved to <code>/static/</code> so <code>/assets/:id</code> is free for pages</td></tr>
+      <tr><td>9 · docs and PR</td><td><span class="badge warn">◐ docs done, PR yours</span></td><td><code>ai_specs/s02_text_mining.md</code>, AGENTS.md, README, <code>showcase.yaml</code>. 83 Python tests (33 new, synthetic only), ruff, mypy strict, all green. Nothing committed: that waits for you</td></tr>
+    </tbody></table></div>
+</section>
+
+<section id="cost">
+  <span class="eyebrow">What it cost</span>
+  <h2>Thinking tokens doubled the plan's estimate</h2>
+  <p class="sub">At effort high a week averaged 15.6k output tokens on the gold weeks and 15.9k in the backfill, not the 7k I guessed, because thinking bills as output. Through the Batch API that is about 17¢ a week, and the backfill landed on it.</p>
+  <div class="tablewrap"><table id="costs">
+    <thead><tr><th></th><th class="n">Plan</th><th class="n">Gold weeks</th><th class="n">Backfill</th></tr></thead>
+    <tbody>
+      <tr><td>Output tokens a week, effort high</td><td class="n">≈ 7,000</td><td class="n">15,568</td><td class="n">15,858</td></tr>
+      <tr><td>A week via Batch</td><td class="n">≈ 9¢</td><td class="n">17¢</td><td class="n">17.5¢</td></tr>
+      <tr><td>The 187 weeks of the backfill</td><td class="n">—</td><td class="n">≈ $32</td><td class="n">$32.75</td></tr>
+      <tr><td>All 199 weeks, current prompt</td><td class="n">≈ $17</td><td class="n">≈ $34</td><td class="n">$34.69</td></tr>
+    </tbody></table></div>
+  <p class="small">Gold weeks: the 48 week-calls of the eval and run-to-run runs at effort high; backfill: 187 weeks. The backfill's own estimate at submission was $36.34. $34.69 is the backfill plus the 12 eval weeks it builds on ($1.94).</p>
+  <div class="callout red" style="margin-top:var(--s4)">
+    <h3>$7.86 lost to my mistake</h3>
+    <p>The first gold pass ran at effort <b>max</b> with a 64k <code>max_tokens</code>. Thinking used all of it on all 12 weeks, so no JSON came back. The run is kept and marked failed. Effort now sets <code>max_tokens</code> (96k at xhigh, 128k at max), and AGENTS.md carries the rule. The pass was redone at xhigh for $3.90.</p>
+  </div>
+  <details style="margin-top:var(--s4)"><summary>Every run ($57.90 in runs, plus $0.71 for two second reads)</summary>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Run</th><th>Version</th><th>Purpose</th><th>Effort · mode</th><th>Status</th><th class="n">Weeks</th><th class="n">Kept</th><th class="n">Dropped</th><th class="n">Output tokens</th><th class="n">Cost</th></tr></thead>
+      <tbody>
+<tr><td><code>20261028T052043-d011</code></td><td><code>play/v0</code></td><td>baseline</td><td>regex · local</td><td><span class="badge ok">done</span></td><td class=n>199</td><td class=n>3,017</td><td class=n>0</td><td class=n>0</td><td class=n>$0.00</td></tr>
+<tr><td><code>20261028T052156-c61a</code></td><td><code>play/v0</code></td><td>baseline</td><td>regex · local</td><td><span class="badge ok">done</span></td><td class=n>199</td><td class=n>2,887</td><td class=n>0</td><td class=n>0</td><td class=n>$0.00</td></tr>
+<tr><td><code>20261028T052259-b58d</code></td><td><code>play/v1 · 1cc2963</code></td><td>dev</td><td>high · interactive</td><td><span class="badge ok">done</span></td><td class=n>3</td><td class=n>148</td><td class=n>1</td><td class=n>56,842</td><td class=n>$1.31</td></tr>
+<tr><td><code>20261028T052801-d017</code></td><td><code>gold/v1 · 1cc2963</code></td><td>gold</td><td>max · batch</td><td><span class="badge bad">failed</span></td><td class=n>12</td><td class=n>0</td><td class=n>0</td><td class=n>768,000</td><td class=n>$7.86</td></tr>
+<tr><td><code>20261028T052804-e1f9</code></td><td><code>play/v1 · 1cc2963</code></td><td>eval</td><td>high · batch</td><td><span class="badge ok">done</span></td><td class=n>12</td><td class=n>560</td><td class=n>1</td><td class=n>183,259</td><td class=n>$2.03</td></tr>
+<tr><td><code>20261028T052806-9282</code></td><td><code>play/v1 · 1cc2963</code></td><td>agreement</td><td>high · batch</td><td><span class="badge ok">done</span></td><td class=n>4</td><td class=n>190</td><td class=n>0</td><td class=n>69,690</td><td class=n>$0.77</td></tr>
+<tr><td><code>20261028T054856-e7c7</code></td><td><code>gold/v1 · 1cc2963</code></td><td>gold</td><td>xhigh · batch</td><td><span class="badge ok">done</span></td><td class=n>12</td><td class=n>604</td><td class=n>0</td><td class=n>371,460</td><td class=n>$3.90</td></tr>
+<tr><td><code>20261028T063425-61fe</code></td><td><code>gold/v1 · 3ab4d33</code></td><td>gold</td><td>xhigh · batch</td><td><span class="badge ok">done</span></td><td class=n>12</td><td class=n>658</td><td class=n>0</td><td class=n>361,527</td><td class=n>$3.80</td></tr>
+<tr><td><code>20261028T063427-287a</code></td><td><code>play/v1 · 3ab4d33</code></td><td>eval</td><td>high · batch</td><td><span class="badge ok">done</span></td><td class=n>12</td><td class=n>557</td><td class=n>1</td><td class=n>174,573</td><td class=n>$1.94</td></tr>
+<tr><td><code>20261028T063429-57ec</code></td><td><code>play/v1 · 3ab4d33</code></td><td>agreement</td><td>high · batch</td><td><span class="badge ok">done</span></td><td class=n>4</td><td class=n>201</td><td class=n>0</td><td class=n>71,460</td><td class=n>$0.78</td></tr>
+<tr><td><code>20261028T064807-d565</code></td><td><code>play/v1 · c415e85</code></td><td>eval</td><td>high · batch</td><td><span class="badge ok">done</span></td><td class=n>12</td><td class=n>571</td><td class=n>0</td><td class=n>179,786</td><td class=n>$2.00</td></tr>
+<tr><td><code>20261028T064809-c634</code></td><td><code>play/v1 · c415e85</code></td><td>agreement</td><td>high · batch</td><td><span class="badge ok">done</span></td><td class=n>4</td><td class=n>191</td><td class=n>0</td><td class=n>68,497</td><td class=n>$0.75</td></tr>
+<tr><td><code>20261028T080435-ed1c</code></td><td><code>play/v1 · 3ab4d33</code></td><td>backfill</td><td>high · batch</td><td><span class="badge ok">done</span></td><td class=n>187</td><td class=n>9,376</td><td class=n>2</td><td class=n>2,965,458</td><td class=n>$32.75</td></tr>
+      </tbody></table></div>
+  </details>
+</section>
+
+<section id="backfill">
+  <span class="eyebrow">The backfill</span>
+  <h2>187 weeks in one twelve-minute batch, for $32.75</h2>
+  <p class="sub">You answered on 28 Oct: <span class="q">“run all the weeks I don't want any gating I can always improve it later”</span>. So the backfill ran at effort high with the current prompt, and nothing waited on the targets.</p>
+  <dl class="kv">
+    <dt>Run</dt><dd><code>mine-20261028T080435-ed1c</code> · MLflow <a href="http://localhost:5000/#/experiments/19/runs/d021ef497de94c019ad2569566b06a4e" target="_blank" rel="noreferrer"><code>d021ef49…</code></a> · Batch <code>msgbatch_01FXZMNPP4sKHSaHMQxXgW1r</code></dd>
+    <dt>Weeks</dt><dd>187 submitted, 187 done, 0 failed; the batch ended about 12 minutes after submission</dd>
+    <dt>Calls</dt><dd>9,376 kept, 2 dropped by the provenance gate; 26 to 82 a week (average 50.1)</dd>
+    <dt>Tokens</dt><dd>1,492,739 in, 2,965,458 out, 1,048,322 cache read; 6.7k to 27.5k output a week (average 15.9k)</dd>
+    <dt>Cost</dt><dd>$32.75, against $36.34 estimated at submission and the plan's ≈ $17 for the whole corpus. Total spend now $58.61</dd>
+    <dt>Coverage</dt><dd>199 of 199 weeks current, 9,933 calls</dd>
+  </dl>
+  <h3 style="margin-top:var(--s5)">What the 199 weeks say: mostly technical reads on the index, gold and bitcoin, with flow he relays</h3>
+  <div class="pair">
+    <div class="tablewrap"><table id="plays-all">
+      <thead><tr><th>Play</th><th class="n">Calls</th><th class="n">Weeks</th><th class="n">↑ bullish</th><th class="n">↓ bearish</th><th class="n">neutral</th></tr></thead>
+      <tbody>
+        <tr><td>technical</td><td class="n">4,288</td><td class="n">199</td><td class="n">2,202</td><td class="n">1,658</td><td class="n">428</td></tr>
+        <tr><td>other</td><td class="n">1,868</td><td class="n">199</td><td class="n">1,175</td><td class="n">654</td><td class="n">39</td></tr>
+        <tr><td>regime</td><td class="n">1,257</td><td class="n">197</td><td class="n">595</td><td class="n">598</td><td class="n">64</td></tr>
+        <tr><td>flow</td><td class="n">1,055</td><td class="n">197</td><td class="n">656</td><td class="n">399</td><td class="n">0</td></tr>
+        <tr><td>call</td><td class="n">455</td><td class="n">163</td><td class="n">263</td><td class="n">72</td><td class="n">120</td></tr>
+        <tr><td>relative</td><td class="n">430</td><td class="n">166</td><td class="n">430</td><td class="n">0</td><td class="n">0</td></tr>
+        <tr><td>valuation</td><td class="n">320</td><td class="n">149</td><td class="n">107</td><td class="n">170</td><td class="n">43</td></tr>
+        <tr><td>rotation</td><td class="n">260</td><td class="n">138</td><td class="n">138</td><td class="n">122</td><td class="n">0</td></tr>
+        <tr><td><b>all plays</b></td><td class="n"><b>9,933</b></td><td class="n">199</td><td class="n">5,566</td><td class="n">3,673</td><td class="n">694</td></tr>
+      </tbody></table>
+      <p class="small" style="padding:0 var(--s3)">Stance is toward a call's first asset. For <code>relative</code> that is the winner, so it is always ↑; the asset it beats carries the ↓. Rotation has no neutral: in is ↑, out is ↓.</p>
+    </div>
+    <figure class="shot"><img src="s02_shots/assets-index.png" alt="The Assets page: 11,774 assets in the map, ranked by mentions over all 199 weeks, led by the S&amp;P 500 (2,900), gold, bitcoin, semiconductors, the Nasdaq-100, Nvidia, Tesla and the Russell 2000"><figcaption>/assets · ranked by mentions over all 199 weeks, with layer, proxy and ↑/↓ counts</figcaption></figure>
+  </div>
+  <div class="callout" style="margin-top:var(--s4)">
+    <h3>Unknown assets: 1.10% after triage and a resolver fix</h3>
+    <p>Triage of the unknown queue, by hand and free, added curated rows or aliases for iron ore (heard as “inor”), aluminium, the NYSE composite, Tencent (“10 cent”), SK Hynix (“Heinix”), Cardano, Trump coin, Japanese yields, UK and EU oil (to Brent), “terminal rate” (to the Fed), “US 500” (to the S&amp;P 500) and SpaceX (to <code>stock:SPCX</code>; it listed in June 2026). Unknown references fell from 1.75% to 1.16%. Then a resolver fix stopped index and futures ticker guesses (<code>^DJT</code>, <code>^MOVE</code>, <code>CL=F</code>) from matching same-letter US stocks (Trump Media, MOVE, Cleveland-Cliffs): those 26 references now resolve to new rows for the Dow Transports and the MOVE index, or to crude oil. After the re-resolve, 132 of 12,024 references are unknown: 1.10%.</p>
+  </div>
+</section>
+
+<section id="decide">
+  <span class="eyebrow">Your calls</span>
+  <h2>Two answered, two still yours</h2>
+  <p class="sub">You answered the first two in chat on 28 Oct; they stay here as a record and are left out of <i>Copy all answers</i>. The other two are still open, recommended option first.</p>
+  <div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))">
+    <div class="card answered" id="answered-rotation">
+      <h3>1 · What counts as rotation <span class="badge ok">answered 28 Oct</span></h3>
+      <p class="q">“run all the weeks I don't want any gating I can always improve it later”</p>
+      <p>Kept strict: prompt <code>3ab4d33</code>, money or leadership has to move, and the scoreboard stays <code>other</code> with the same ↑/↓. The thresholds became targets that <code>rt mine eval</code> reports, not a gate. Rotation recall (0.64 against 0.80) is the known gap, to improve later.</p>
+    </div>
+    <div class="card answered" id="answered-backfill">
+      <h3>2 · The backfill <span class="badge ok">answered 28 Oct</span></h3>
+      <p class="q">“run all the weeks I don't want any gating”</p>
+      <p>Ran without waiting for the spot-checks: all 187 weeks at effort high via Batch, $32.75, 0 failed. 199 of 199 weeks are mined. See <a href="#backfill">the backfill</a>.</p>
+    </div>
+    <form class="q-form card" data-lavish-question="ship" onsubmit="event.preventDefault(); const f=new FormData(event.currentTarget); const c=f.get('ship'); if(!c) return; window.lavish.queuePrompt('Ship decision: '+c+'. Notes: '+(f.get('note')||'none'), {tag:'choice', text:'Ship: '+c, element:event.currentTarget, data:{question:'ship', answer:c, note:f.get('note')||''}});">
+      <h3>3 · Commit and PR</h3>
+      <label><input type="radio" name="ship" value="commit now and open the PR through /no-mistakes; data runs continue separately" checked> Commit now, PR through <code>/no-mistakes</code>; the data runs don't depend on it <span class="badge rec">recommended</span></label>
+      <label><input type="radio" name="ship" value="commit and PR after the spot-checks"> After your spot-checks</label>
+      <label><input type="radio" name="ship" value="hold; I want changes first (see notes)"> Hold; changes first (say which in the notes)</label>
+      <textarea name="note" placeholder="Notes (optional)"></textarea>
+      <div class="row"><button type="submit">Queue this answer</button></div>
+    </form>
+    <form class="q-form card" data-lavish-question="registry" onsubmit="event.preventDefault(); const f=new FormData(event.currentTarget); const c=f.get('registry'); if(!c) return; window.lavish.queuePrompt('Registry decision: '+c+'. Notes: '+(f.get('note')||'none'), {tag:'choice', text:'Registry: '+c, element:event.currentTarget, data:{question:'registry', answer:c, note:f.get('note')||''}});">
+      <h3>4 · The platform registry</h3>
+      <p class="small">The first mining run created MLflow experiment <code>rotation-tracker/mining</code> (id 19). Registry P11 in nmp-central-ai still lists only <code>rotation-tracker/ingest</code>, so <code>make check</code> won't look at mining runs.</p>
+      <label><input type="radio" name="registry" value="add rotation-tracker/mining to P11 in nmp-central-ai on its own branch and PR, leaving the portfolio-ui checkout alone" checked> Add it on a branch in a separate worktree and open a PR there <span class="badge rec">recommended</span></label>
+      <label><input type="radio" name="registry" value="leave the registry; I will add it myself"> Leave it; I'll add it</label>
+      <textarea name="note" placeholder="Notes (optional)"></textarea>
+      <div class="row"><button type="submit">Queue this answer</button></div>
+    </form>
+  </div>
+  <form class="q-form card" data-lavish-question="anything-else" style="margin-top:var(--s4)" onsubmit="event.preventDefault(); const t=new FormData(event.currentTarget).get('else'); if(!t) return; window.lavish.queuePrompt('Anything else: '+t, {tag:'message', text:t, element:event.currentTarget});">
+    <h3>Anything else</h3>
+    <textarea name="else" placeholder="What you saw in the viewer, anything to change before s03…"></textarea>
+    <div class="row"><button type="submit">Queue this note</button></div>
+  </form>
+  <div class="copyrow">
+    <button type="button" class="btn" title="Copies the two open questions and the note; the answered ones are left out" onclick="(async (btn) => {
+      const copyRun = btn._lavishCopyRun = (btn._lavishCopyRun || 0) + 1;
+      const qs = [...document.querySelectorAll('[data-lavish-question]')];
+      const status = btn.parentElement.querySelector('[data-lavish-copy-all-status]');
+      btn.parentElement.querySelector('[data-lavish-copy-all-manual]')?.remove();
+      const out = [];
+      for (const q of qs) {
+        const key = q.getAttribute('data-lavish-question')?.trim() || 'Question';
+        const lines = [];
+        for (const el of q.querySelectorAll('input, select, textarea')) {
+          if (el.matches(':disabled')) continue;
+          if (el.closest('[data-lavish-question]') !== q) continue;
+          const isChoice = el.matches('input[type=checkbox], input[type=radio]');
+          if (isChoice && !el.checked) continue;
+          if (el.matches('input[type=button], input[type=submit], input[type=reset], input[type=image], input[type=hidden], input[type=file], input[type=range], input[type=color]')) continue;
+          let vals;
+          if (el instanceof HTMLSelectElement) {
+            vals = [...el.selectedOptions].filter((o) => !o.disabled && !o.closest('optgroup[disabled]')).map((o) => o.value.trim()).filter(Boolean);
+          } else {
+            const v = isChoice && (!el.hasAttribute('value') || !el.value.trim())
+              ? el.labels?.[0]?.textContent?.trim() || el.getAttribute('aria-label')?.trim() || el.name || ''
+              : el.value.trim();
+            vals = v ? [v] : [];
+          }
+          const label = el.name || el.labels?.[0]?.textContent?.trim() || el.getAttribute('aria-label')?.trim() || el.getAttribute('placeholder')?.trim() || el.tagName.toLowerCase();
+          for (const v of vals) lines.push('  ' + label + ': ' + v.split('\n').join('\n    '));
+        }
+        if (lines.length) out.push(key + ':\n' + lines.join('\n'));
+      }
+      const text = out.join('\n\n');
+      if (!text) { status.textContent = qs.length ? 'No answers to copy yet.' : 'No questions or answers to copy.'; return; }
+      status.textContent = '';
+      try {
+        if (typeof navigator.clipboard?.writeText !== 'function') throw new Error('Clipboard API unavailable');
+        await navigator.clipboard.writeText(text);
+        if (copyRun !== btn._lavishCopyRun) return;
+        status.textContent = 'Answers copied.';
+        return;
+      } catch {}
+      if (copyRun !== btn._lavishCopyRun) return;
+      const tmp = document.createElement('textarea');
+      tmp.value = text; tmp.readOnly = true; tmp.setAttribute('aria-hidden', 'true');
+      tmp.style.position = 'fixed'; tmp.style.left = '-10000px';
+      document.body.append(tmp); tmp.focus(); tmp.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch {}
+      tmp.remove();
+      if (ok) { status.textContent = 'Answers copied.'; return; }
+      const man = document.createElement('textarea');
+      man.value = text; man.readOnly = true; man.rows = Math.min(12, Math.max(3, text.split('\n').length));
+      man.setAttribute('aria-label', 'Answers to copy manually'); man.dataset.lavishCopyAllManual = '';
+      btn.insertAdjacentElement('afterend', man); man.focus(); man.select();
+      status.textContent = 'Clipboard unavailable. Copy the answers below manually.';
+    })(this)">Copy all answers</button>
+    <span data-lavish-copy-all-status role="status" aria-live="polite" class="small muted"></span>
+  </div>
+</section>
+
+<footer style="margin-top:var(--s8)">
+  <p class="small">Every number on this page comes from Postgres (<code>rt.mine_runs</code>, <code>rt.mine_weeks</code>, <code>rt.evals</code>, <code>rt.mentions</code>, <code>rt.mention_assets</code>) as of 28 Oct 2026, 19:35 AEDT, after the backfill and the resolver fix, and the viewer's <code>/mining</code> page reads the same tables live. Screenshots are cropped to parts with no transcript text, because <code>.lavish/</code> is committed to a public repo. The quotes above are short and attributed, as on the plan page. Plan: <code>.lavish/s01_text-mining-plan.html</code>; plan of record: <code>ai_specs/s02_text_mining.md</code>.</p>
+</footer>
+
+</main>
+</body>
+</html>

@@ -108,11 +108,33 @@ uv run rt sync                        # ⑤ copy into Postgres, cut at chapters
 uv run rt status                      # the funnel
 ```
 
+### Mine it (s02)
+
+Every commentary on price in every wrap becomes a row: the play (rotation, flow, valuation,
+technical, regime, relative, call, other), its direction, the assets it is about with the
+stance each implies, who said it, and the verbatim quote with the second it was said. One Claude
+Opus 5.5 call per week at effort high; a quote that is not found in the transcript is dropped;
+assets resolve through `assets/themes.yaml`, `assets/extras.yaml` and every US-listed ticker.
+Plan of record: [`ai_specs/s02_text_mining.md`](ai_specs/s02_text_mining.md). Needs
+`ANTHROPIC_API_KEY` in `~/.env` or `.env`; every paid command takes a `--max-usd` cap.
+
+```bash
+uv run rt assets seed                                   # assets/v1 (free; fetches public lists)
+uv run rt mine run --engine regex --all --max-usd 0     # play/v0, the regex baseline (free)
+uv run rt mine run --all --skip-done --batch --purpose backfill --max-usd 50
+uv run rt mine collect <run_id>                         # write a finished batch
+uv run rt mine eval                                     # score against the gold set; the targets
+uv run rt assets unknown                                # what did not resolve
+uv run rt mine run --since 2026-10-30 --purpose new-week --max-usd 1   # after rt sync
+```
+
 ### The viewer
 
 A local site for browsing the corpus: every weekly wrap, each transcript cut into chapter
 "tracks", Chroma's chunks, full-text search, a quarterly chart of themes by mentions, and the
-liner notes (what was built, where it lives, what it cost). It reads Postgres as `rotation_ro`,
+liner notes (what was built, where it lives, what it cost). From s02 it also shows the mined
+mentions (`/mentions`), the asset map with a week-by-week strip per asset (`/assets`), the
+miner's eval, gate, runs and cost (`/mining`), and the gold-set spot-checks (`/label`). It reads Postgres as `rotation_ro`,
 reads transcript·lab's Chroma store read-only (straight from its SQLite file), links to MLflow, and binds to 127.0.0.1 only.
 The look follows the Lovable "Sonora" music template, built on the portfolio's house UI. Plan
 of record: [`ai_specs/s01_viewer.md`](ai_specs/s01_viewer.md).
@@ -120,6 +142,7 @@ of record: [`ai_specs/s01_viewer.md`](ai_specs/s01_viewer.md).
 ```bash
 cd frontend && npm ci && npm run build && cd ..
 uv run rt serve                        # http://127.0.0.1:8089, the API and the built UI
+uv run rt serve --label                # the same, with spot-checks saved to rt.labels
 
 # while working on the UI, in two terminals:
 uv run rt serve --reload               # the API on :8089

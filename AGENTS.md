@@ -16,9 +16,11 @@ style, theme or stock and into another), and tests whether names sold down by
 a rotation rebound when it ends. Four stages: **extract → signal → backtest →
 listener**. `README.md` has the thesis and the roadmap.
 
-**Status: M1, data pipeline.** Source: FX Evolution's weekly market wrap,
-2023 onwards, one video per week (`pick/v1`). Read `ai_specs/s00_data_pipeline.md`
-before changing ingestion, and `ai_specs/s01_viewer.md` before changing the viewer.
+**Status: M2, extraction (s02); the backfill of every week is running, without a
+gate.** Source: FX Evolution's weekly market wrap, 2023 onwards, one video per week
+(`pick/v1`). Read `ai_specs/s00_data_pipeline.md` before changing ingestion,
+`ai_specs/s01_viewer.md` before changing the viewer, and `ai_specs/s02_text_mining.md`
+before changing the miner, its prompt or the asset map.
 
 ## Vocabulary
 
@@ -88,8 +90,15 @@ before changing ingestion, and `ai_specs/s01_viewer.md` before changing the view
 - The viewer (`frontend/`, React + Vite) is styled only by the house UI in
   `.lavish/` (`house.css`, `project.css`, `fonts/`). No colour literal, no `--hue`
   and no font size under `--t-2` in `frontend/src`: `npm run lint:design` fails on
-  them. Its API (`rt serve`) is read-only and binds to 127.0.0.1. Frontend tests use
-  synthetic fixtures, never corpus text.
+  them. Its API (`rt serve`) binds to 127.0.0.1 and is read-only, with one exception:
+  `POST /api/labels` (the owner's gold spot-checks), off unless `rt serve --label`.
+  Frontend tests use synthetic fixtures, never corpus text.
+- Every Claude call goes through `mining/extract.py`; every paid command takes `--max-usd`
+  and refuses an estimate over it. Thinking tokens bill as output: size `max_tokens` for
+  the effort (s02 lessons).
+- Changing `mining/prompt.md` changes `prompt_sha`; re-run the gold pass, the second read
+  and `rt mine eval` to measure it against the targets before trusting runs made with it. The
+  targets are reported, not a gate: nothing waits on them.
 
 ## Shared platform
 
@@ -140,13 +149,20 @@ src/rotation_tracker/
   supadata.py        credit balance (GET /v1/me, free)
   topics.py          topic/v1 chapter tags and the cut of a transcript at its chapters
   pipeline.py        catalog → refine → pick → ingest → sync, status
-  tracking.py        MLflow runs (experiment rotation-tracker/ingest)
-  serving/           the viewer's read-only API (`rt serve`): app.py routes, store.py
-                     reads, chroma.py Chroma's SQLite read with mode=ro (no chromadb client), themes.py the chart's keyword themes (themes/v0, not signals)
+  tracking.py        MLflow runs (experiments rotation-tracker/ingest and /mining)
+  mining/            s02: universe.py (assets/v1 seed), resolve.py (alias → asset), corpus.py
+                     (a week as read), prompt.md + schema.py (play/v1), extract.py (every Claude
+                     call), locate.py (the provenance gate), baseline.py (play/v0), run.py
+                     (rt mine), gold.py (gold set, second read, spot-checks), evaluate.py
+  serving/           the viewer's API (`rt serve`): app.py routes, store.py
+                     reads, chroma.py Chroma's SQLite read with mode=ro (no chromadb client), themes.py the chart's keyword themes (themes/v0, not signals), mining.py the miner's reads and the one label write
   cli.py             `rt`
 frontend/            the viewer: React + Vite on the house UI, design lint, vitest
-sql/                 001_rt.sql: schema rt, idempotent
-tests/               pick rule, topic tags, chapter cut, viewer API (offline)
+sql/                 001_rt.sql: schema rt; 002_mining.sql: assets, aliases, runs, mentions,
+                     labels, evals. Idempotent
+assets/              themes.yaml (curated layers, proxies, aliases), extras.yaml (stock
+                     nicknames, mishearings, names that need a ticker cue)
+tests/               pick rule, topic tags, chapter cut, viewer API, the miner (offline)
 ai_specs/            sNN_*.md specs, the plan of record
 .lavish/             house.css, project.css (hue 15) and fonts from nmp-central-ai;
                      review artifacts
@@ -154,11 +170,13 @@ showcase.yaml        what a portfolio-site build of the viewer may freeze, and w
 .rt/                 caches and seed data, gitignored
 ```
 
-Still to come, per the roadmap: `market/` (prices), `extract/` (rotation calls with
-one module for every model call), `signal/`, `backtest/`, `listener/`.
+Still to come, per the roadmap: `market/` (prices), `signal/`, `backtest/`, `listener/`.
 
 ## Open decisions
 
-- Model and runtime for rotation-call extraction, and its billing.
-- Taxonomy: which sector, industry, style and theme nodes, and their proxies.
 - Drawdown threshold, horizons, cost model and holdout date for the backtest.
+- s02: committing the branch and opening its pull request.
+- s02: adding experiment `rotation-tracker/mining` to P11 in
+  `../nmp-central-ai/registry/projects.yaml` (it lists only `rotation-tracker/ingest`).
+- Decided 28 Oct 2026: the rotation definition stays strict (prompt `3ab4d33`), to improve
+  later; every remaining week is backfilled at effort `high`, without a gate, and is running.
