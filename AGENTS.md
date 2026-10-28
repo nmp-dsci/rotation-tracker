@@ -136,13 +136,13 @@ src/rotation_tracker/
   db.py              connections; `rt db migrate` applies sql/*.sql as the superuser
   youtube.py         yt-dlp: tab listings, per-video publish time + chapters, cached in .rt/ytdlp/
   pick.py            pick/v1, the weekly pick rule (pure, tested)
-  transcript_lab.py  index-rag subprocess + read-only Chroma reader
+  transcript_lab.py  index-rag subprocess + chromadb client on raw_transcripts (ingest, sync)
   supadata.py        credit balance (GET /v1/me, free)
   topics.py          topic/v1 chapter tags and the cut of a transcript at its chapters
   pipeline.py        catalog → refine → pick → ingest → sync, status
   tracking.py        MLflow runs (experiment rotation-tracker/ingest)
   serving/           the viewer's read-only API (`rt serve`): app.py routes, store.py
-                     reads, themes.py the chart's keyword themes (themes/v0, not signals)
+                     reads, chroma.py Chroma's SQLite read with mode=ro (no chromadb client), themes.py the chart's keyword themes (themes/v0, not signals)
   cli.py             `rt`
 frontend/            the viewer: React + Vite on the house UI, design lint, vitest
 sql/                 001_rt.sql: schema rt, idempotent

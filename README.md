@@ -113,7 +113,7 @@ uv run rt status                      # the funnel
 A local site for browsing the corpus: every weekly wrap, each transcript cut into chapter
 "tracks", Chroma's chunks, full-text search, a quarterly chart of themes by mentions, and the
 liner notes (what was built, where it lives, what it cost). It reads Postgres as `rotation_ro`,
-opens transcript·lab's Chroma store read-only, links to MLflow, and binds to 127.0.0.1 only.
+reads transcript·lab's Chroma store read-only (straight from its SQLite file), links to MLflow, and binds to 127.0.0.1 only.
 The look follows the Lovable "Sonora" music template, built on the portfolio's house UI. Plan
 of record: [`ai_specs/s01_viewer.md`](ai_specs/s01_viewer.md).
 
