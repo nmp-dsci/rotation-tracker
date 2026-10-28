@@ -84,3 +84,26 @@ def test_an_empty_week_gets_no_pick_and_an_open_week_is_not_picked() -> None:
 def test_first_friday_must_be_a_friday() -> None:
     with pytest.raises(ValueError):
         pick_weeks([], date(2026, 10, 15), NOW)
+
+
+def test_undated_upload_holds_only_the_weeks_it_may_fall_in() -> None:
+    from rotation_tracker.pick import undated_spans, undated_weeks
+
+    listing = [
+        ("new", ny(2026, 10, 24, 23)),
+        ("mystery", None),
+        ("old", ny(2026, 10, 10, 23)),
+    ]
+    held = undated_weeks(undated_spans(listing), date(2026, 10, 9), NOW)
+    assert held == {
+        date(2026, 10, 9): ["mystery"],
+        date(2026, 10, 16): ["mystery"],
+        date(2026, 10, 23): ["mystery"],
+    }
+
+
+def test_fully_dated_listing_holds_nothing() -> None:
+    from rotation_tracker.pick import undated_spans, undated_weeks
+
+    spans = undated_spans([("a", ny(2026, 10, 15, 23)), ("b", ny(2026, 10, 8, 23))])
+    assert undated_weeks(spans, FRI, NOW) == {}

@@ -106,16 +106,29 @@ def refine(
 
 
 # ── ③ pick ─────────────────────────────────────────────────────────────────────
-def pick(con: psycopg.Connection, now: datetime | None = None) -> list[pick_rule.Pick]:
+def pick(
+    con: psycopg.Connection, now: datetime | None = None, log: Log = print
+) -> list[pick_rule.Pick]:
+    now = now or datetime.now(UTC)
+    first = settings().first_week_friday
+    listing = con.execute(
+        "SELECT video_id, published_at FROM rt.videos WHERE tab = 'videos' ORDER BY listing_pos"
+    ).fetchall()
+    held = pick_rule.undated_weeks(
+        pick_rule.undated_spans([(r[0], r[1]) for r in listing]), first, now
+    )
+    for friday, ids in held.items():
+        log(f"  skipped week {friday}: undated uploads {', '.join(ids)} (run refine)")
     rows = con.execute(
         """SELECT video_id, published_at, tab, live_status, duration_s
            FROM rt.videos WHERE published_at IS NOT NULL"""
     ).fetchall()
     uploads = [pick_rule.Upload(r[0], r[1], r[2], r[3], r[4]) for r in rows]
-    picks = pick_rule.pick_weeks(uploads, settings().first_week_friday, now or datetime.now(UTC))
+    picks = [p for p in pick_rule.pick_weeks(uploads, first, now) if p.week_friday not in held]
     with con.cursor() as cur:
         cur.execute(
-            "DELETE FROM rt.weekly_picks WHERE rule_version = %s", (pick_rule.RULE_VERSION,)
+            "DELETE FROM rt.weekly_picks WHERE rule_version = %s AND week_friday <> ALL(%s)",
+            (pick_rule.RULE_VERSION, list(held)),
         )
         for p in picks:
             cur.execute(
@@ -193,10 +206,11 @@ def ingest(
 
 
 # ── ⑤ sync ─────────────────────────────────────────────────────────────────────
-def sync(con: psycopg.Connection, log: Log = print) -> dict[str, int]:
+def sync(con: psycopg.Connection, log: Log = print) -> dict[str, Any]:
     corpus = transcript_lab.Corpus()
     picks = [r[0] for r in con.execute("SELECT video_id FROM rt.weekly_picks").fetchall()]
     synced = sections = untagged = 0
+    skipped: list[str] = []
     for vid in picks:
         body = corpus.raw(vid)
         if body is None:
@@ -204,7 +218,12 @@ def sync(con: psycopg.Connection, log: Log = print) -> dict[str, int]:
         segments = body.get("segments") or []
         text = " ".join(str(s.get("text", "")).strip() for s in segments).strip()
         digest = hashlib.sha256(json.dumps(segments, sort_keys=True).encode()).hexdigest()
-        meta = youtube.video_meta(vid, need_chapters=True)
+        try:
+            meta = youtube.video_meta(vid, need_chapters=True)
+        except youtube.BotCheck as e:
+            skipped.append(vid)
+            log(f"  {vid} skipped, bot-check: {str(e)[:120]}")
+            continue
         chapters = meta.get("chapters") or []
         with con.cursor() as cur:
             cur.execute(
@@ -246,7 +265,14 @@ def sync(con: psycopg.Connection, log: Log = print) -> dict[str, int]:
         synced += 1
         con.commit()
     log(f"  synced {synced} transcripts, {sections} sections ({untagged} videos without chapters)")
-    return {"synced": synced, "sections": sections, "without_chapters": untagged}
+    if skipped:
+        log(f"  WARNING: {len(skipped)} skipped on a bot-check, re-run sync: {', '.join(skipped)}")
+    return {
+        "synced": synced,
+        "sections": sections,
+        "without_chapters": untagged,
+        "skipped": skipped,
+    }
 
 
 # ── status ─────────────────────────────────────────────────────────────────────

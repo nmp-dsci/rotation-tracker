@@ -38,6 +38,15 @@ class Upload:
 
 
 @dataclass(frozen=True)
+class Span:
+    """An undated upload, bounded by its dated neighbours in the newest-first listing."""
+
+    video_id: str
+    after: datetime | None
+    before: datetime | None
+
+
+@dataclass(frozen=True)
 class Pick:
     week_friday: date
     video_id: str
@@ -76,3 +85,40 @@ def pick_weeks(uploads: Iterable[Upload], first_friday: date, now: datetime) -> 
             picks.append(Pick(friday, last.video_id, reason, last.published_at))
         friday += timedelta(days=7)
     return picks
+
+
+def undated_spans(listing: Iterable[tuple[str, datetime | None]]) -> list[Span]:
+    """Bound each undated upload using the dated rows around it. ``listing`` is the Videos
+    tab, newest first, as (video_id, published_at or None)."""
+    rows = list(listing)
+    spans: list[Span] = []
+    for i, (vid, at) in enumerate(rows):
+        if at is not None:
+            continue
+        before = next((t for _, t in reversed(rows[:i]) if t is not None), None)
+        after = next((t for _, t in rows[i + 1 :] if t is not None), None)
+        spans.append(Span(vid, after, before))
+    return spans
+
+
+def undated_weeks(
+    spans: Iterable[Span], first_friday: date, now: datetime
+) -> dict[date, list[str]]:
+    """Weeks whose window an undated upload may fall in, with the video ids, so a pick
+    there cannot be trusted."""
+    pending = list(spans)
+    out: dict[date, list[str]] = {}
+    friday = first_friday
+    while True:
+        start, end = window(friday)
+        if end > now:
+            break
+        ids = [
+            s.video_id
+            for s in pending
+            if (s.after is None or s.after < end) and (s.before is None or s.before >= start)
+        ]
+        if ids:
+            out[friday] = ids
+        friday += timedelta(days=7)
+    return out

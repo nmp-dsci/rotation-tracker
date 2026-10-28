@@ -72,7 +72,10 @@ GROUP BY 1
 """
 
 QUARTER_WEEKS_SQL = """
-SELECT date_trunc('quarter', week_friday)::date, count(*) FROM rt.weekly_picks GROUP BY 1
+SELECT date_trunc('quarter', p.week_friday)::date, count(*)
+FROM rt.weekly_picks p
+WHERE EXISTS (SELECT 1 FROM rt.transcripts t WHERE t.video_id = p.video_id)
+GROUP BY 1
 """
 
 THEME_SQL = """

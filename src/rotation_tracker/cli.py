@@ -62,7 +62,7 @@ def refine(
 def pick() -> None:
     """③ One video per trading week (pick/v1)."""
     with db.connect() as con:
-        picks = pipeline.pick(con)
+        picks = pipeline.pick(con, log=typer.echo)
     weekend = sum(p.reason == "weekend" for p in picks)
     if picks:
         typer.echo(
@@ -109,7 +109,9 @@ def ingest(
 def sync() -> None:
     """⑤ Copy transcripts from transcript·lab into rt.transcripts and cut them at chapters."""
     with db.connect() as con:
-        pipeline.sync(con, log=typer.echo)
+        res = pipeline.sync(con, log=typer.echo)
+    if res["skipped"]:
+        raise typer.Exit(1)
 
 
 @app.command()
