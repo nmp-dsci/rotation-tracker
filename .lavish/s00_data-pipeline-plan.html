@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rotation tracker data pipeline</title>
+<link rel="stylesheet" href="house.css">
+<style>
+  /* layout helpers only: every colour is a house token */
+  .fig svg{ width:100%; display:block; color:var(--ink-2); }
+  .fig svg text{ font-family:var(--sans); fill:currentColor; }
+  .fig svg .mono{ font-family:var(--mono); }
+  .fig svg .muted{ fill:var(--muted); }
+  .fig svg .axis{ stroke:var(--line-2); stroke-width:1; }
+  .fig svg .grid{ stroke:var(--line); stroke-width:1; }
+  .fig svg .band{ fill:var(--band); }
+  .fig svg .bar{ fill:var(--line-3); }
+  .fig svg .bar.hi{ fill:var(--accent); }
+  .fig svg .bar:hover{ filter:brightness(1.15); }
+  .fig svg .node rect{ fill:var(--panel); stroke:var(--line-2); stroke-width:1.5; }
+  .fig svg .node.paid rect{ stroke:var(--accent); stroke-width:2; }
+  .fig svg .node.store rect{ fill:var(--accent-soft); stroke:var(--accent); }
+  .fig svg .node.next rect{ fill:none; stroke:var(--line-3); stroke-dasharray:5 4; }
+  .fig svg .node .t{ font-weight:600; fill:var(--ink); }
+  .fig svg .edge{ stroke:var(--line-3); stroke-width:1.5; fill:none; }
+  .fig svg .edge.paid{ stroke:var(--accent); }
+  .fig svg .arrowhead{ fill:var(--line-3); }
+  .fig svg .arrowhead.paid{ fill:var(--accent); }
+  .hero-flags{ display:grid; gap:var(--s3); }
+  .hero-flags .callout{ margin:0; }
+  .callout h3{ margin-bottom:var(--s1); }
+  td code, li code, p code{ overflow-wrap:anywhere; }
+  .meter{ height:10px; background:var(--band); border:1px solid var(--line-2); border-radius:999px; overflow:hidden; min-width:90px; }
+  .meter > i{ display:block; height:100%; background:var(--accent); border-radius:999px; }
+  .meter.over > i{ background:var(--amber); }
+  .copyrow{ margin-top:var(--s4); display:flex; gap:var(--s3); align-items:center; flex-wrap:wrap; }
+  .copyrow textarea{ flex-basis:100%; }
+  form.q textarea{ min-height:64px; }
+  .cols2{ columns:2 260px; column-gap:var(--s5); }
+  .cols2 li{ break-inside:avoid; }
+  #pipeline td.n{ white-space:normal; min-width:7ch; }
+  #pipeline td:nth-child(2) code{ white-space:nowrap; }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <span class="eyebrow">rotation-tracker · plan s00 · 27 Oct 2026 · branch <code>data-pipeline</code></span>
+  <h1>One market wrap a week, <em>2023 onwards</em>, read for macro and flows</h1>
+  <p class="lede">Get every weekly FX Evolution wrap since January 2023 into a database next to the price history needed to judge it. Each transcript is cut at its chapters, so the macro and flows commentary can be read apart from the chart reading. That gives a later branch the material to answer "when did he first say money was leaving software, and what happened six months later?" This page covers the data base only. The rotation mining builds on it.</p>
+  <div class="verdict">
+    <div class="stat"><div class="n">1,511</div><div class="l">uploads on the Videos tab (+404 live streams, 62 shorts), listed free with yt-dlp</div></div>
+    <div class="stat accent"><div class="n">84 / 97</div><div class="l">sampled weeks with exactly one upload between Friday's close and Monday's open</div></div>
+    <div class="stat"><div class="n">85%</div><div class="l">of uploads land 19:00–02:00 New York time, the next morning in Australia</div></div>
+    <div class="stat accent"><div class="n">199</div><div class="l">weeks from the first week of 2023: about 199 Supadata credits at 1 per video</div></div>
+    <div class="stat"><div class="n">452</div><div class="l">Supadata credits left across your three keys today (checked, free call)</div></div>
+  </div>
+</header>
+
+<section id="flags">
+  <span class="eyebrow">Flagged up front</span>
+  <h2>Four things that change the plan</h2>
+  <p class="sub">Each one was checked against the live channel, your keys or the sibling repos today, not assumed.</p>
+  <div class="hero-flags">
+    <div class="callout red" id="flag-prices">
+      <h3>The stock data you expected in nmp-central-ai isn't usable for this</h3>
+      <p>The central Postgres holds market data in one place: DataAgentBench's benchmark snapshot in database <code>dab</code>. That's 2,754 per-ticker tables, including the sector ETFs, but <b>every series ends on 1 April 2020</b> and nothing refreshes it. The only current daily prices in the portfolio are in value-invest-agent's DuckDB: <b>102 tickers to 18 Sep 2026, with SPY the only ETF</b>. No repo has a ticker-to-sector mapping. So this plan adds a price loader to rotation-tracker's own database, copied from value-invest-agent's yfinance code.</p>
+    </div>
+    <div class="callout" id="flag-window">
+      <h3>The best pick isn't a weekday. It's the last upload before Monday's open</h3>
+      <p>He is evidently in Australia: descriptions carry AU/NZ broker offers, and uploads land in the New York evening, which is Sydney's next morning. So each video recaps the US session that just closed. Once a week, usually Saturday or Sunday evening New York time, there's one more: chapters like <i>"Market week overview"</i> and <i>"Upcoming earnings schedule"</i> mark it as the weekly wrap plus a look ahead. From 2020 into 2023 it was mostly the <i>"Buy Now, Wait or Sell The Stock Market This Week?"</i> series.</p>
+    </div>
+    <div class="callout" id="flag-budget">
+      <h3>2023 onwards costs about 199 credits</h3>
+      <p>transcript·lab charges 1 credit per video when it's handed the metadata. That's what <code>--metadata-json</code> does, and value-invest-agent already uses it. 2023 onwards is 199 weekly picks, about 44% of the 452 credits, leaving ~253. A pilot of 8 videos measures the real cost per video before the backfill commits.</p>
+    </div>
+    <div class="callout warn" id="flag-tra">
+      <h3>transcript·lab has side effects: reuse it the way value-invest-agent does</h3>
+      <p>Don't use <code>bulk-index --since</code>, which costs about 3 credits a video. Don't use its HTTP ingest endpoints either, which cost 2. Run <code>index-rag &lt;url&gt; --metadata-json</code> as a subprocess from its folder. Each run also logs to transcript·lab's own MLflow file store, loads an embedding model and rewrites <code>dashboard/rag_pipeline.html</code> in that repo. Read transcripts back from its Chroma store read-only. This repo never writes there.</p>
+    </div>
+  </div>
+</section>
+
+<section id="channel">
+  <span class="eyebrow">The channel, measured</span>
+  <h2>FX Evolution – Trading Academy</h2>
+  <p class="sub"><code>@fxevolutionvideo</code> · channel id <code>UCvJZEG5x-DVYZKTz--pS39w</code> · 254k subscribers. I listed every tab for free with one yt-dlp call each. Exact publish times came from per-video lookups on a sample of 480: the latest 140 videos plus 45-video blocks across six years.</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Era</th><th>What the uploads are</th><th>Weekly wrap looks like</th><th>Typical length</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Feb–Apr 2020<br><span class="badge">out of scope</span></td><td>Forex channel: "Forex Weekly Friday Wrap", MT5 guides, scalping systems. S&amp;P 500 videos start appearing in March.</td><td>"Forex Weekly Friday Wrap dd mm yyyy"</td><td class="n">6–14 min</td></tr>
+        <tr><td class="k">May 2020 – 2022<br><span class="badge">out of scope</span></td><td>S&amp;P 500 / Nasdaq analysis on most weekdays, 3–5 a week. Mostly chart reading.</td><td>The weekend "Buy Now, Wait or Sell The Stock Market This Week?" technical outlook, weekly from Dec 2020 through 2022</td><td class="n">10–30 min</td></tr>
+        <tr><td class="k rec">2023<br><span class="badge rec">in scope</span></td><td class="rec">Daily macro-and-flows breakdown, 4–5 a week</td><td class="rec">The weekly series runs to the first week of January (6 Jan 2023), then turns sporadic (the last on 10 Feb 2024). The weekend video moves to macro titles like "Hedge Funds Are Selling Stocks Again..." Some 2023 videos have no chapters.</td><td class="n rec">20–30 min</td></tr>
+        <tr><td class="k rec">2024 – now<br><span class="badge rec">in scope</span></td><td>"New market breakdowns every weekday", 13–19 chapters; many titles end in tickers "(SP500, Nasdaq, SMH)". A separate Monday live stream at the US open (median 68 min, Streams tab)</td><td>Saturday/Sunday evening ET, chapters open with "Market week overview"</td><td class="n">23–33 min</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small">Every video I checked (9 of 9, from 2020 to 2026) has YouTube auto-captions and no uploaded captions. That's what Supadata's transcript call reads, so the pilot (step 6) checks the cost per video.</p>
+</section>
+
+<section id="weekday">
+  <span class="eyebrow">The day-of-week question</span>
+  <h2>When the uploads land, and which one closes the week</h2>
+  <div class="split">
+    <figure class="fig" id="fig-hours">
+      <div class="fig-title">Uploads by hour, New York time · 455 sampled videos</div>
+      <svg viewBox="0 0 640 250" role="img" aria-labelledby="h-t h-d"><title id="h-t">Uploads by hour of day, New York time</title><desc id="h-d">Peaks at 23:00 (93) and 00:00 (89); almost none between 11:00 and 16:00.</desc>
+<rect class="band" x="269.9" y="22" width="161.4" height="183"/>
+<text class="muted" x="350.6" y="38" text-anchor="middle" font-size="12">US session</text>
+<line class="grid" x1="34" x2="630" y1="205.0" y2="205.0"/><text class="muted mono" x="28" y="209.0" text-anchor="end" font-size="11">0</text>
+<line class="grid" x1="34" x2="630" y1="113.5" y2="113.5"/><text class="muted mono" x="28" y="117.5" text-anchor="end" font-size="11">50</text>
+<line class="grid" x1="34" x2="630" y1="22.0" y2="22.0"/><text class="muted mono" x="28" y="26.0" text-anchor="end" font-size="11">100</text>
+<path class="bar hi" d="M36.0,205 V46.1 Q36.0,42.1 40.0,42.1 H52.8 Q56.8,42.1 56.8,46.1 V205 Z"><title>00:00 ET · 89 uploads</title></path>
+<path class="bar hi" d="M60.8,205 V135.8 Q60.8,131.8 64.8,131.8 H77.7 Q81.7,131.8 81.7,135.8 V205 Z"><title>01:00 ET · 40 uploads</title></path>
+<path class="bar" d="M85.7,205 V199.8 Q85.7,195.8 89.7,195.8 H102.5 Q106.5,195.8 106.5,199.8 V205 Z"><title>02:00 ET · 5 uploads</title></path>
+<path class="bar" d="M110.5,205 V201.7 Q110.5,197.7 114.5,197.7 H127.3 Q131.3,197.7 131.3,201.7 V205 Z"><title>03:00 ET · 4 uploads</title></path>
+<path class="bar" d="M135.3,205 V201.3 H156.2 V205 Z"><title>04:00 ET · 2 uploads</title></path>
+<path class="bar" d="M160.2,205 V203.2 H181.0 V205 Z"><title>05:00 ET · 1 uploads</title></path>
+<path class="bar" d="M185.0,205 V201.3 H205.8 V205 Z"><title>06:00 ET · 2 uploads</title></path>
+<path class="bar" d="M209.8,205 V199.8 Q209.8,195.8 213.8,195.8 H226.7 Q230.7,195.8 230.7,199.8 V205 Z"><title>07:00 ET · 5 uploads</title></path>
+<path class="bar" d="M234.7,205 V196.2 Q234.7,192.2 238.7,192.2 H251.5 Q255.5,192.2 255.5,196.2 V205 Z"><title>08:00 ET · 7 uploads</title></path>
+<path class="bar" d="M259.5,205 V177.9 Q259.5,173.9 263.5,173.9 H276.3 Q280.3,173.9 280.3,177.9 V205 Z"><title>09:00 ET · 17 uploads</title></path>
+<path class="bar" d="M284.3,205 V194.4 Q284.3,190.4 288.3,190.4 H301.2 Q305.2,190.4 305.2,194.4 V205 Z"><title>10:00 ET · 8 uploads</title></path>
+<rect x="309.2" y="204" width="20.8" height="1" class="bar"><title>11:00 ET · 0 uploads</title></rect>
+<rect x="334.0" y="204" width="20.8" height="1" class="bar"><title>12:00 ET · 0 uploads</title></rect>
+<rect x="358.8" y="204" width="20.8" height="1" class="bar"><title>13:00 ET · 0 uploads</title></rect>
+<rect x="383.7" y="204" width="20.8" height="1" class="bar"><title>14:00 ET · 0 uploads</title></rect>
+<path class="bar" d="M408.5,205 V203.2 H429.3 V205 Z"><title>15:00 ET · 1 uploads</title></path>
+<rect x="433.3" y="204" width="20.8" height="1" class="bar"><title>16:00 ET · 0 uploads</title></rect>
+<path class="bar" d="M458.2,205 V198.0 Q458.2,194.0 462.2,194.0 H475.0 Q479.0,194.0 479.0,198.0 V205 Z"><title>17:00 ET · 6 uploads</title></path>
+<path class="bar" d="M483.0,205 V192.5 Q483.0,188.5 487.0,188.5 H499.8 Q503.8,188.5 503.8,192.5 V205 Z"><title>18:00 ET · 9 uploads</title></path>
+<path class="bar hi" d="M507.8,205 V170.6 Q507.8,166.6 511.8,166.6 H524.7 Q528.7,166.6 528.7,170.6 V205 Z"><title>19:00 ET · 21 uploads</title></path>
+<path class="bar hi" d="M532.7,205 V154.1 Q532.7,150.1 536.7,150.1 H549.5 Q553.5,150.1 553.5,154.1 V205 Z"><title>20:00 ET · 30 uploads</title></path>
+<path class="bar hi" d="M557.5,205 V97.4 Q557.5,93.4 561.5,93.4 H574.3 Q578.3,93.4 578.3,97.4 V205 Z"><title>21:00 ET · 61 uploads</title></path>
+<path class="bar hi" d="M582.3,205 V110.2 Q582.3,106.2 586.3,106.2 H599.2 Q603.2,106.2 603.2,110.2 V205 Z"><title>22:00 ET · 54 uploads</title></path>
+<path class="bar hi" d="M607.2,205 V38.8 Q607.2,34.8 611.2,34.8 H624.0 Q628.0,34.8 628.0,38.8 V205 Z"><title>23:00 ET · 93 uploads</title></path>
+<line class="axis" x1="34" x2="630" y1="205" y2="205"/>
+<text class="muted mono" x="46.4" y="221" text-anchor="middle" font-size="11">00</text>
+<text class="muted mono" x="145.7" y="221" text-anchor="middle" font-size="11">04</text>
+<text class="muted mono" x="245.1" y="221" text-anchor="middle" font-size="11">08</text>
+<text class="muted mono" x="344.4" y="221" text-anchor="middle" font-size="11">12</text>
+<text class="muted mono" x="443.8" y="221" text-anchor="middle" font-size="11">16</text>
+<text class="muted mono" x="543.1" y="221" text-anchor="middle" font-size="11">20</text>
+<text class="muted" x="630" y="241" text-anchor="end" font-size="12">hour, America/New_York</text>
+<text x="567.9" y="26.8" text-anchor="middle" font-size="12" font-weight="600">19:00–01:59 · 85%</text>
+</svg>
+      <figcaption>Almost nothing is published during the US session. 85% land between 19:00 and 02:00 ET, the next morning in Sydney. So a video "recaps" the session that closed before it.</figcaption>
+    </figure>
+    <figure class="fig" id="fig-pick">
+      <div class="fig-title">Weekday of the last upload before Monday's 09:30 ET open · 97 weeks</div>
+      <svg viewBox="0 0 640 250" role="img" aria-labelledby="p-t p-d"><title id="p-t">Weekday of the last upload before Monday open</title><desc id="p-d">Saturday 50, Sunday 24, Friday 8, Thursday 7, Monday before open 6, Wednesday 2, Tuesday 0, out of 97 weeks.</desc>
+<line class="grid" x1="34" x2="630" y1="205.0" y2="205.0"/><text class="muted mono" x="28" y="209.0" text-anchor="end" font-size="11">0</text>
+<line class="grid" x1="34" x2="630" y1="113.5" y2="113.5"/><text class="muted mono" x="28" y="117.5" text-anchor="end" font-size="11">30</text>
+<line class="grid" x1="34" x2="630" y1="22.0" y2="22.0"/><text class="muted mono" x="28" y="26.0" text-anchor="end" font-size="11">60</text>
+<path class="bar" d="M52.7,205 V190.7 Q52.7,186.7 56.7,186.7 H96.4 Q100.4,186.7 100.4,190.7 V205 Z"><title>Mon · 6 of 97 weeks</title></path>
+<text class="muted mono" x="76.6" y="221" text-anchor="middle" font-size="11">Mon*</text>
+<rect x="137.9" y="204" width="47.7" height="1" class="bar"><title>Tue · 0 of 97 weeks</title></rect>
+<text class="muted mono" x="161.7" y="221" text-anchor="middle" font-size="11">Tue</text>
+<path class="bar" d="M223.0,205 V202.9 Q223.0,198.9 227.0,198.9 H266.7 Q270.7,198.9 270.7,202.9 V205 Z"><title>Wed · 2 of 97 weeks</title></path>
+<text class="muted mono" x="246.9" y="221" text-anchor="middle" font-size="11">Wed</text>
+<path class="bar" d="M308.2,205 V187.7 Q308.2,183.7 312.2,183.7 H351.8 Q355.8,183.7 355.8,187.7 V205 Z"><title>Thu · 7 of 97 weeks</title></path>
+<text class="muted mono" x="332.0" y="221" text-anchor="middle" font-size="11">Thu</text>
+<path class="bar" d="M393.3,205 V184.6 Q393.3,180.6 397.3,180.6 H437.0 Q441.0,180.6 441.0,184.6 V205 Z"><title>Fri · 8 of 97 weeks</title></path>
+<text class="muted mono" x="417.1" y="221" text-anchor="middle" font-size="11">Fri</text>
+<path class="bar hi" d="M478.4,205 V56.5 Q478.4,52.5 482.4,52.5 H522.1 Q526.1,52.5 526.1,56.5 V205 Z"><title>Sat · 50 of 97 weeks</title></path>
+<text x="502.3" y="44.5" text-anchor="middle" font-size="13" font-weight="600">50</text>
+<text class="muted mono" x="502.3" y="221" text-anchor="middle" font-size="11">Sat</text>
+<path class="bar hi" d="M563.6,205 V135.8 Q563.6,131.8 567.6,131.8 H607.3 Q611.3,131.8 611.3,135.8 V205 Z"><title>Sun · 24 of 97 weeks</title></path>
+<text x="587.4" y="123.8" text-anchor="middle" font-size="13" font-weight="600">24</text>
+<text class="muted mono" x="587.4" y="221" text-anchor="middle" font-size="11">Sun</text>
+<line class="axis" x1="34" x2="630" y1="205" y2="205"/>
+<text class="muted" x="630" y="241" text-anchor="end" font-size="12">* Monday before 09:30 ET</text>
+</svg>
+      <figcaption>Saturday 50 · Sunday 24 · Monday before the open 6 · Friday 8 (4 of them after the close) · Thursday 7 · Wednesday 2 · Tuesday 0. In 84 weeks that upload falls in the weekend window. In the other 13 it's the Thursday or Friday recap.</figcaption>
+    </figure>
+  </div>
+
+  <h3 style="margin-top:var(--s5)">Coverage by sampled stretch</h3>
+  <p class="sub">I counted only weeks that fall wholly inside a sampled block, dropping each block's first and last week. In no week from June 2020 on was there more than one upload in the weekend window. When the weekend video exists, it's unique.</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Sampled weeks</th><th>Weeks</th><th>Weekend video</th><th>Share</th><th>Example pick</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Apr – Oct 2026</td><td class="n">30</td><td class="n">25</td><td class="n">83%</td><td>Sun 11 Oct 01:12 ET · "A New Wall Street Record.. (SP500, Nasdaq, TLT)" · 33 min</td></tr>
+        <tr><td class="k">Apr – Jun 2025</td><td class="n">10</td><td class="n">9</td><td class="n">90%</td><td>Sat 14 Jun 23:30 ET · "Wall Street Usually Does This Next..." · 30 min</td></tr>
+        <tr><td class="k">May – Jul 2024</td><td class="n">10</td><td class="n">9</td><td class="n">90%</td><td>Fri 19 Jul 23:26 ET · "Is The AI Bubble Bursting?" · chapter "Sector rotation and flows"</td></tr>
+        <tr><td class="k">Jul – Sep 2023</td><td class="n">8</td><td class="n">8</td><td class="n">100%</td><td>Sat 9 Sep 23:28 ET · "Hedge Funds Are Selling Stocks Again..."</td></tr>
+        <tr><td class="k">Sep – Nov 2022</td><td class="n">8</td><td class="n">7</td><td class="n">88%</td><td>Sun 16 Oct · "Buy Now, Wait or Sell The Stock Market This Week? "Max-Pain" Options Week!"</td></tr>
+        <tr><td class="k">Nov 2021 – Jan 2022</td><td class="n">10</td><td class="n">10</td><td class="n">100%</td><td>Sat 15 Jan · "Buy Now, Wait or Sell … Earnings Set To Disappoint?"</td></tr>
+        <tr><td class="k">Dec 2020 – Mar 2021</td><td class="n">13</td><td class="n">11</td><td class="n">85%</td><td>Sat 13 Mar · "Buy Now, Wait or Sell … QQQ Support!" · chapter "Sector Rotation"</td></tr>
+        <tr><td class="k">Apr – May 2020</td><td class="n">8</td><td class="n">5</td><td class="n">63%</td><td>Sun 24 May · "America's Toughest Challenge Yet? …" · 15 min</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout" id="pick-rule">
+    <h3>Proposed pick rule, <code>pick/v1</code></h3>
+    <p>For each trading week, keyed by its Friday <code>F</code>: take the <b>last upload on the Videos tab</b> (no Shorts, no live streams) published at or after that week's Monday 09:30 ET and before the next Monday 09:30 ET. Tag it <code>weekend</code> if it came after <code>F</code> 16:00 ET, otherwise <code>fallback</code>. A week with no upload gets no pick and a log line. Times are converted with <code>America/New_York</code>, so daylight-saving changes are handled. The tag goes in the table, so the later analysis can treat a fallback pick (a Thursday or Friday recap) differently from a true wrap.</p>
+  </div>
+</section>
+
+<section id="budget">
+  <span class="eyebrow">How far back</span>
+  <h2>Backfill depth against the credits you have</h2>
+  <p class="sub"><b>Decided: 2023 onwards, newest first, nothing before 2023.</b> I checked credits with Supadata's <code>GET /v1/me</code>, which used no credits on either free key. Key 1 is on Basic with 252 of 300 left. Keys 2 and 3 are on Free with 100 of 100 each. transcript·lab moves to the next key when one runs out. The week counts run to Friday 23 Oct 2026.</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Depth</th><th>From</th><th>Weeks ≈ credits</th><th>Share of 452</th><th style="min-width:120px">&nbsp;</th><th>Note</th></tr></thead>
+      <tbody>
+        <tr><td class="rec"><b>2023 onwards</b> <span class="badge rec">decided</span></td><td class="k rec">week of 6 Jan 2023</td><td class="n rec">199</td><td class="n rec">44%</td><td class="rec"><div class="meter"><i style="width:44%"></i></div></td><td class="rec">The macro-and-flows era only. Covers the 2023 AI rally, the 2024 rotation into small caps and cyclicals, the 2025 drawdown and the 2026 software sell-off. Leaves ~253 credits</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small">Order: newest first, so the most useful weeks land even if the run stops. A <code>--max-credits</code> cap and a <code>/v1/me</code> check before and after each batch keep the spend honest. If you'd rather keep credits for other projects, the free keys refill monthly, so the backfill can spread across two months.</p>
+</section>
+
+<section id="pipeline">
+  <span class="eyebrow">The pipeline</span>
+  <h2>Six commands, one database</h2>
+  <p class="sub"><b>Transcripts come from Supadata and nothing else.</b> Step ④ is the only Supadata call (<code>/v1/transcript</code>, 1 credit), made by transcript·lab, which already holds your three keys. yt-dlp is used only for the free steps: the video list, exact publish times and chapters. It never fetches a transcript. Prices come from yfinance. Only step ④ costs anything. Everything lands in a <code>rotation</code> database on the central Postgres (schema <code>rt</code>), the M3 pattern every portfolio project follows.</p>
+  <figure class="fig" id="fig-pipeline">
+    <svg viewBox="0 0 1040 400" role="img" aria-labelledby="pl-title">
+      <title id="pl-title">Pipeline: YouTube to catalog, refine, pick, ingest via transcript·lab, sync; Yahoo to prices; all into the rotation database; M2 next</title>
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead" d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="ahp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead paid" d="M0,0 L10,5 L0,10 z"/></marker>
+      </defs>
+      <!-- row 1 -->
+      <g class="node" id="n-yt"><title>Source: the channel's Videos tab</title><rect x="10" y="30" width="150" height="64" rx="8"/><text class="t" x="85" y="57" text-anchor="middle">YouTube</text><text class="muted mono" x="85" y="78" text-anchor="middle" font-size="12">@fxevolutionvideo</text></g>
+      <g class="node" id="n-catalog"><title>① catalog: one flat yt-dlp listing, free</title><rect x="180" y="30" width="150" height="64" rx="8"/><text class="t" x="255" y="57" text-anchor="middle">① catalog</text><text class="muted" x="255" y="78" text-anchor="middle" font-size="12">yt-dlp listing · free</text></g>
+      <g class="node" id="n-refine"><title>② refine: per-video yt-dlp for exact time and chapters, free, resumable</title><rect x="350" y="30" width="150" height="64" rx="8"/><text class="t" x="425" y="57" text-anchor="middle">② refine</text><text class="muted" x="425" y="78" text-anchor="middle" font-size="12">time + chapters · free</text></g>
+      <g class="node" id="n-pick"><title>③ pick: last upload before Monday's open, pick/v1</title><rect x="520" y="30" width="150" height="64" rx="8"/><text class="t" x="595" y="57" text-anchor="middle">③ pick</text><text class="muted" x="595" y="78" text-anchor="middle" font-size="12">one per week</text></g>
+      <g class="node paid" id="n-ingest"><title>④ ingest: transcript·lab index-rag --metadata-json, 1 Supadata credit per video</title><rect x="690" y="30" width="160" height="64" rx="8"/><text class="t" x="770" y="57" text-anchor="middle">④ ingest</text><text class="muted" x="770" y="78" text-anchor="middle" font-size="12">Supadata · 1 credit</text></g>
+      <g class="node" id="n-sync"><title>⑤ sync: read-only Chroma to rt.transcripts with full-text index</title><rect x="870" y="30" width="160" height="64" rx="8"/><text class="t" x="950" y="57" text-anchor="middle">⑤ sync</text><text class="muted" x="950" y="78" text-anchor="middle" font-size="12">Chroma → Postgres</text></g>
+      <path class="edge" d="M160,62 H178" marker-end="url(#ah)"/>
+      <path class="edge" d="M330,62 H348" marker-end="url(#ah)"/>
+      <path class="edge" d="M500,62 H518" marker-end="url(#ah)"/>
+      <path class="edge paid" d="M670,62 H688" marker-end="url(#ahp)"/>
+      <path class="edge" d="M850,62 H868" marker-end="url(#ah)"/>
+      <text class="muted" x="770" y="118" text-anchor="middle" font-size="12">via transcript·lab → its Chroma</text>
+      <!-- row 2: prices -->
+      <g class="node" id="n-yahoo"><title>Source: Yahoo Finance via yfinance</title><rect x="10" y="190" width="150" height="64" rx="8"/><text class="t" x="85" y="217" text-anchor="middle">Yahoo Finance</text><text class="muted" x="85" y="238" text-anchor="middle" font-size="12">daily OHLCV</text></g>
+      <g class="node" id="n-prices"><title>⑥ prices: ~55 ETFs and benchmarks from 2019, parquet cache, free</title><rect x="180" y="190" width="150" height="64" rx="8"/><text class="t" x="255" y="217" text-anchor="middle">⑥ prices</text><text class="muted" x="255" y="238" text-anchor="middle" font-size="12">~55 ETFs · free</text></g>
+      <path class="edge" d="M160,222 H178" marker-end="url(#ah)"/>
+      <!-- store -->
+      <g class="node store" id="n-db"><title>The rotation database on the central Postgres, schema rt</title><rect x="400" y="160" width="630" height="110" rx="10"/><text class="t" x="715" y="190" text-anchor="middle">rotation database · central Postgres · schema rt</text><text class="mono" x="715" y="218" text-anchor="middle" font-size="12.5">videos · chapters · weekly_picks · transcripts</text><text class="mono" x="715" y="242" text-anchor="middle" font-size="12.5">instruments · prices · ingest_log</text></g>
+      <path class="edge" d="M330,222 H398" marker-end="url(#ah)"/>
+      <path class="edge" d="M425,94 V158" marker-end="url(#ah)"/>
+      <path class="edge" d="M595,94 V158" marker-end="url(#ah)"/>
+      <path class="edge" d="M950,94 V158" marker-end="url(#ah)"/>
+      <!-- next -->
+      <g class="node next" id="n-m2"><title>Next branch: extract rotation calls and measure outcomes</title><rect x="400" y="310" width="630" height="64" rx="10"/><text class="t" x="715" y="337" text-anchor="middle">next branch · M2 rotation calls → outcomes</text><text class="muted" x="715" y="358" text-anchor="middle" font-size="12">macro-flows chapters → out → in · driver · quote · +1/3/6/12 m vs SPY</text></g>
+      <path class="edge" d="M715,270 V308" marker-end="url(#ah)"/>
+    </svg>
+    <figcaption>Steps ①–③ and ⑥ are free. ④ is the only paid step, at 1 credit per weekly pick. The dashed box is the next branch, which reads this database and never re-fetches.</figcaption>
+  </figure>
+
+  <div class="tablewrap" style="margin-top:var(--s4)">
+    <table>
+      <thead><tr><th>Step</th><th>Command</th><th>Reads</th><th>Writes</th><th>Cost · time</th><th>Built from</th></tr></thead>
+      <tbody>
+        <tr id="st-catalog"><td class="k">① catalog</td><td><code>rt catalog</code></td><td>yt-dlp flat listing of <code>/videos</code>, <code>/streams</code>, <code>/shorts</code></td><td><code>rt.videos</code> (id, tab, title, duration, views, listing position)</td><td class="n">0 · ~1 min</td><td>value-invest-agent <code>catalog/ytdlp.py</code> pattern, copied</td></tr>
+        <tr id="st-refine"><td class="k">② refine</td><td><code>rt refine</code></td><td>per-video yt-dlp, cached as <code>.rt/ytdlp/&lt;id&gt;.json</code></td><td><code>rt.videos.published_at</code> (exact UTC), captions flag · <code>rt.chapters</code> (weekly picks only)</td><td class="n">0 · ~20 min</td><td>Same pattern: stops at the first bot-check and resumes. Seeded with the 480 lookups already done for this plan. Only 2023 onwards is needed (~870 of the 1,511)</td></tr>
+        <tr id="st-pick"><td class="k">③ pick</td><td><code>rt pick</code></td><td><code>rt.videos</code></td><td><code>rt.weekly_picks</code> (week_friday, video_id, reason, rule_version)</td><td class="n">0 · seconds</td><td>New. Pure function, unit-tested on daylight-saving, holiday and empty weeks</td></tr>
+        <tr id="st-ingest"><td class="k">④ ingest</td><td><code>rt ingest --max-credits N</code></td><td>picks not yet in transcript·lab</td><td>transcript·lab Chroma (<code>raw_transcript:&lt;id&gt;</code>) · <code>rt.ingest_log</code> · MLflow run</td><td class="n">1 credit/video · 2 in parallel</td><td><code>uv run python -m src.cli index-rag &lt;url&gt; --metadata-json &lt;file&gt;</code> run from <code>../transcript-rag-agent</code>, as value-invest-agent's <code>ingest/run.py</code> does</td></tr>
+        <tr id="st-sync"><td class="k">⑤ sync</td><td><code>rt sync</code></td><td>transcript·lab Chroma, read-only</td><td><code>rt.transcripts</code> (segments as JSON, text, full-text index, sha256) · <code>rt.transcript_chapters</code> (cut at chapters, topic-tagged)</td><td class="n">0 · seconds</td><td>value-invest-agent <code>ingest/corpus.py</code> read-only client, copied</td></tr>
+        <tr id="st-prices"><td class="k">⑥ prices</td><td><code>rt prices</code></td><td>yfinance, cached as <code>.rt/market/&lt;ticker&gt;.parquet</code></td><td><code>rt.instruments</code> · <code>rt.prices</code> (daily, adj close, from 2019-01-01)</td><td class="n">0 · ~3 min</td><td>value-invest-agent <code>market/yahoo.py</code> <code>fetch_prices</code>, copied</td></tr>
+        <tr id="st-status"><td class="k">status</td><td><code>rt status</code></td><td>everything</td><td>nothing. Prints the funnel (listed → dated → picked → ingested → synced), credits left, price coverage</td><td class="n">0</td><td>New</td></tr>
+      </tbody>
+    </table>
+  </div>
+<div class="callout" id="focus-macro" style="margin-top:0">
+  <h3>Focus: macro and flows, not chart reading</h3>
+  <p>A 2024+ weekly wrap has 13–19 chapters. Most are macro or flows, and 2–4 are chart levels, options levels or sponsors. Older videos lean more technical. Real chapter titles from the videos checked for this plan:</p>
+  <ul class="tight">
+    <li><span class="badge ok">macro-flows</span> Market week overview · Sector rotation and flows · Institutional vs retail flows · Sector shifts and earnings · Defensive rotation strategy · Bond market and debt risks · Yields, dollar, and small caps</li>
+    <li><span class="badge">technicals</span> Technical chart analysis · Market index levels · S&amp;P 500 levels and options · Trading levels for top stocks · Tech and semiconductor charts</li>
+    <li><span class="badge">promo / other</span> Tiger Brokers · Pause Screen · Closing and live event</li>
+  </ul>
+  <p>The next branch reads only <code>macro-flows</code> sections plus <code>untagged</code> videos. That means less noise and fewer model tokens. The tagger's version is stored with each tag, so it can be improved without re-fetching anything.</p>
+</div>
+</section>
+
+<section id="reuse">
+  <span class="eyebrow">Reuse map</span>
+  <h2>What comes from where</h2>
+  <div class="cards">
+    <div class="card" id="reuse-tra">
+      <h3>transcript-rag-agent <span class="badge ok">reused as is</span></h3>
+      <ul>
+        <li>Supadata fetch, moving to the next of the three keys when one hits its usage limit</li>
+        <li>The raw transcript store (Chroma <code>raw_transcripts</code>, segments with start/end seconds) is the source of truth</li>
+        <li>Called as a subprocess. Not imported, never written to directly</li>
+      </ul>
+    </div>
+    <div class="card" id="reuse-vi">
+      <h3>value-invest-agent <span class="badge info">patterns copied</span></h3>
+      <ul>
+        <li>yt-dlp flat listing, then per-video exact dates with a cache</li>
+        <li>The metadata file that makes ingestion cost 1 credit</li>
+        <li>Read-only Chroma reader; yfinance <code>fetch_prices</code> with a parquet cache</li>
+      </ul>
+      <p class="cost">copied, not imported: a sibling's internals are not an API</p>
+    </div>
+    <div class="card" id="reuse-central">
+      <h3>nmp-central-ai <span class="badge ok">platform</span></h3>
+      <ul>
+        <li>Postgres: new database <code>rotation</code>, roles <code>rotation_owner</code> and <code>rotation_ro</code></li>
+        <li>MLflow: experiment <code>rotation-tracker/ingest</code> (credits, counts per batch)</li>
+        <li>Not used: <code>dab</code> market tables, which are frozen at 2020-04-01</li>
+      </ul>
+    </div>
+    <div class="card" id="reuse-new">
+      <h3>New in this repo <span class="badge">built here</span></h3>
+      <ul>
+        <li>The weekly pick rule and its tests</li>
+        <li>The chapter split and topic tags for macro and flows</li>
+        <li>Instrument universe with sector labels; credit guard; <code>rt status</code></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="schema">
+  <span class="eyebrow">Storage</span>
+  <h2>Schema <code>rt</code> in database <code>rotation</code></h2>
+  <p class="sub">One SQL migration file, applied as <code>nmp</code> inside this project's own database (platform rule 7). The app connects as <code>rotation_owner</code>, analysis notebooks as <code>rotation_ro</code>. Nothing scraped is committed to the public repo, and <code>.rt/</code> caches are gitignored.</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Table</th><th>Key</th><th>Holds</th><th>Rows (est.)</th></tr></thead>
+      <tbody>
+        <tr><td class="k">rt.videos</td><td><code>video_id</code></td><td>tab, title, duration, views, listing position, <code>published_at</code> (UTC) + source (exact or approximate), description, has auto-captions</td><td class="n">~1,980</td></tr>
+        <tr><td class="k">rt.chapters</td><td><code>(video_id, idx)</code></td><td>chapter start seconds and title, for the weekly picks (dailies are out of scope)</td><td class="n">~2,500</td></tr>
+        <tr><td class="k">rt.weekly_picks</td><td><code>week_friday</code></td><td>video_id, reason (<code>weekend</code> | <code>fallback</code>), rule_version</td><td class="n">~199</td></tr>
+        <tr><td class="k">rt.transcripts</td><td><code>video_id</code></td><td>segments (JSON with start/end seconds), plain text, generated <code>tsvector</code>, sha256, synced_at, source id <code>raw_transcript:&lt;id&gt;</code></td><td class="n">~199</td></tr>
+        <tr><td class="k">rt.transcript_chapters</td><td><code>(video_id, idx)</code></td><td>the transcript cut at each chapter: start/end seconds, chapter title, <code>topic</code> (macro-flows · technicals · promo · intro-outro · untagged), the text of that span, topic_rule_version</td><td class="n">~2,500</td></tr>
+        <tr><td class="k">rt.ingest_log</td><td>id</td><td>video_id, started/finished, credits before/after, status, error</td><td class="n">grows</td></tr>
+        <tr><td class="k">rt.instruments</td><td><code>ticker</code></td><td>name, kind (benchmark · sector · industry · style · theme · cross-asset · stock), sector label, what it proxies</td><td class="n">~55 to start</td></tr>
+        <tr><td class="k">rt.prices</td><td><code>(ticker, date)</code></td><td>open, high, low, close, adj_close, volume, daily from 2019-01-01</td><td class="n">~110,000</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h3 style="margin-top:var(--s5)">Starting instrument universe</h3>
+  <ul class="cols2 tight">
+    <li><b>Benchmarks</b> · SPY, RSP, QQQ, IWM, DIA</li>
+    <li><b>Sectors</b> · XLK XLF XLE XLV XLY XLP XLI XLB XLU XLRE XLC</li>
+    <li><b>Tech and software</b> · SMH, SOXX, IGV, SKYY, CIBR</li>
+    <li><b>Financials</b> · KRE, KBE</li>
+    <li><b>Health</b> · XBI, IBB</li>
+    <li><b>Energy and materials</b> · XOP, OIH, XME, COPX, GDX, URA, LIT</li>
+    <li><b>Industrials and consumer</b> · ITA, IYT, JETS, XHB, ITB, XRT</li>
+    <li><b>Clean energy</b> · TAN, ICLN</li>
+    <li><b>Style and factor</b> · IWF, IWD, MTUM, QUAL, USMV, SPHB, ARKK</li>
+    <li><b>Cross-asset (in his titles)</b> · TLT, GLD, SLV, UUP, USO, BTC-USD</li>
+    <li><b>Single stocks</b> · added on demand when M2 resolves a name from a transcript</li>
+  </ul>
+</section>
+
+<section id="unlocks">
+  <span class="eyebrow">What this unlocks</span>
+  <h2>Your SaaS question, the day the pipeline lands</h2>
+  <p class="sub">Before any model runs, plain SQL over the synced transcripts and chapters answers the first half: when did he first say it? Prices answer the second half: what happened next? M2 replaces the keyword search with structured rotation calls (out → in, stated driver, quote, timestamp) resolved to <code>rt.instruments</code>.</p>
+  <div class="split">
+    <div>
+      <h4>1 · First mention (macro and flows sections only)</h4>
+<pre><code>WITH q AS (SELECT websearch_to_tsquery('english',
+  'software OR SaaS rotation OR selling') AS q)
+SELECT p.week_friday, v.title, c.title AS chapter,
+       ts_headline('english', c.text, q.q) AS said
+FROM rt.transcript_chapters c
+JOIN rt.weekly_picks p USING (video_id)
+JOIN rt.videos v USING (video_id), q
+WHERE c.topic IN ('macro-flows', 'untagged')
+  AND to_tsvector('english', c.text) @@ q.q
+ORDER BY p.week_friday
+LIMIT 5;</code></pre>
+    </div>
+    <div>
+      <h4>2 · What happened next (relative to SPY)</h4>
+<pre><code>-- sketch: IGV vs SPY from the first-mention week
+SELECT h.months,
+       a.adj_close / a0.adj_close
+     - s.adj_close / s0.adj_close AS igv_minus_spy
+FROM (VALUES (1),(3),(6),(12)) h(months)
+CROSS JOIN LATERAL (...) a0  -- IGV at T0
+CROSS JOIN LATERAL (...) a   -- IGV at T0 + h
+CROSS JOIN LATERAL (...) s0  -- SPY at T0
+CROSS JOIN LATERAL (...) s;  -- SPY at T0 + h</code></pre>
+    </div>
+  </div>
+  <p class="small">T0 is the pick's publish time. A weekend video becomes tradable at Monday's open. Point-in-time rules from <code>AGENTS.md</code> apply from day one.</p>
+</section>
+
+<section id="build">
+  <span class="eyebrow">Build order on <code>data-pipeline</code></span>
+  <h2>Ten steps, each with a done-when</h2>
+  <div class="steps">
+    <div class="step" id="b0"><b>Onboard to the platform</b>Add a <code>rotation-tracker</code> entry to <code>nmp-central-ai/registry/projects.yaml</code>: database <code>rotation</code>, roles <code>rotation_owner</code> / <code>rotation_ro</code>, experiment <code>rotation-tracker/ingest</code>, a zero-cost smoke, and <code>ui.hue</code>. 15 is the only free hue 30° from the rest. Then <code>make db-init</code> and <code>make mlflow-init</code>, and paste the URL block into <code>.env</code>.<span class="tag">done when <code>make check ARGS="--only &lt;id&gt;"</code> passes · a change in nmp-central-ai, committed there</span></div>
+    <div class="step" id="b1"><b>Scaffold</b>uv project <code>rotation_tracker</code>, <code>rt</code> CLI (typer), settings reading <code>./.env</code> then <code>~/.env</code>, <code>sql/001_rt.sql</code>, pytest, Ruff, mypy strict. Add <code>.rt/</code> to <code>.gitignore</code>.<span class="tag">done when <code>uv run rt db migrate</code> creates schema rt and <code>uv run pytest</code> is green</span></div>
+    <div class="step" id="b2"><b>① catalog</b>Flat listings of the three tabs into <code>rt.videos</code>.<span class="tag">done when about 1,511 videos, 404 streams and 62 shorts are present</span></div>
+    <div class="step" id="b3"><b>② refine</b>Per-video exact time and chapters for Videos-tab uploads back to the week of 2 Jan 2023 (~870 videos, ~280 already looked up). Resumable, 2 workers. Nothing older is fetched. Seed the cache with this plan's 480 lookups first. They're kept in <code>.rt/seed/</code>, which is gitignored.<span class="tag">done when every Videos-tab row from 2 Jan 2023 on has an exact <code>published_at</code> and chapters are loaded</span></div>
+    <div class="step" id="b4"><b>③ pick</b>Implement <code>pick/v1</code>, with tests on a daylight-saving week, a US holiday week, a Monday-early upload and an empty week.<span class="tag">done when ~199 picks exist (week of 6 Jan 2023 → now), at least 85% tagged <code>weekend</code>, and 10 random picks are hand-checked against YouTube</span></div>
+    <div class="step" id="b5"><b>④ ingest pilot</b>The 8 most recent picks, with <code>/v1/me</code> read before and after.<span class="tag">done when the measured cost per video is 1 credit (or the budget table is redone with the real number)</span></div>
+    <div class="step" id="b6"><b>④ ingest backfill</b>Newest to oldest back to the week of 6 Jan 2023, with <code>--max-credits 205</code>. One MLflow run per batch.<span class="tag">done when every pick in range has a transcript or a logged failure</span></div>
+    <div class="step" id="b7"><b>⑤ sync</b>Read-only Chroma to <code>rt.transcripts</code> with the full-text index. Then cut each transcript at its chapters into <code>rt.transcript_chapters</code> and tag each section with a keyword rule (<code>topic/v1</code>), e.g. "Sector rotation and flows" → macro-flows, "Technical chart analysis" → technicals, "Tiger Brokers" → promo. A video without chapters stays one <code>untagged</code> section.<span class="tag">done when row counts match the ingested picks, 20 random chapter tags agree with a hand check, and the first-mention SQL above returns rows</span></div>
+    <div class="step" id="b8"><b>⑥ prices</b>Seed <code>rt.instruments</code> and pull daily history from 2019-01-01.<span class="tag">done when every instrument reaches the last close and none has a gap over 5 trading days</span></div>
+    <div class="step" id="b9"><b>status + docs</b><code>rt status</code> funnel. README and AGENTS.md updated with the commands. PR to <code>main</code>.<span class="tag">done when a fresh clone with <code>.env</code> reproduces the funnel numbers</span></div>
+  </div>
+</section>
+
+<section id="risks">
+  <span class="eyebrow">Risks and failure modes</span>
+  <h2>What can go wrong, and the guard for each</h2>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Risk</th><th>Evidence</th><th>Guard</th></tr></thead>
+      <tbody>
+        <tr id="r1"><td><span class="badge warn">likely</span> YouTube bot-checks the ~1,030 remaining per-video lookups</td><td>value-invest-agent hit it "after a few hundred". The 480 lookups for this plan ran clean with 4 workers.</td><td>Per-id cache, stop on the first bot error, resume later. Use 2 workers. <code>--cookies-from-browser</code> as a last resort.</td></tr>
+        <tr id="r2"><td><span class="badge warn">possible</span> A transcript costs more than 1 credit</td><td>This channel has auto-captions only, and every per-video cost here is from the docs, not measured.</td><td>The 8-video pilot measures it with <code>/v1/me</code> before any backfill.</td></tr>
+        <tr id="r3"><td><span class="badge info">known</span> About 13% of picks are a Thursday or Friday recap, not a wrap</td><td>13 of 97 sampled weeks had no weekend video.</td><td>The <code>reason</code> column. The chapters layer covers the daily detail anyway.</td></tr>
+        <tr id="r4"><td><span class="badge warn">likely</span> transcript·lab side effects</td><td><code>index-rag</code> logs to its own <code>file:</code> MLflow store, rewrites <code>dashboard/rag_pipeline.html</code> (dirtying that repo), loads an embedding model and needs <code>DEEPSEEK_API_KEY</code> (set)</td><td>Run it as value-invest-agent does. Note the dirty file in the PR. transcript·lab's own move to the platform (its M1b) fixes the store.</td></tr>
+        <tr id="r5"><td><span class="badge ok">scoped</span> Each video mixes macro and flows with chart reading</td><td>2020 forex and short videos and 2021–22 technical outlooks are out of scope. Inside 2023+, chapters split macro from technicals, and some 2023 videos have no chapters.</td><td><code>rt.transcript_chapters</code> with <code>topic/v1</code>. Chapterless videos stay <code>untagged</code> and are read whole. The share of untagged videos is reported in <code>rt status</code>.</td></tr>
+        <tr id="r6"><td><span class="badge info">possible</span> yfinance breaks or rate-limits</td><td>Unofficial API</td><td>Parquet cache per ticker, retries, ETFs only at first. A gap check in <code>rt status</code>.</td></tr>
+        <tr id="r7"><td><span class="badge bad">must not</span> Scraped data reaches the public repo</td><td>The repo is public</td><td>Transcripts, chapters and prices live only in Postgres and <code>.rt/</code>. Tests use small synthetic fixtures.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="decisions">
+  <span class="eyebrow">Decisions</span>
+  <h2>Decided on 27 Oct 2026</h2>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Question</th><th>Decision</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Which video per week</td><td><span class="badge rec">pick/v1</span> The last upload before Monday's 09:30 ET open, tagged <code>weekend</code> or <code>fallback</code></td></tr>
+        <tr><td class="k">How far back</td><td><span class="badge rec">2023 onwards</span> 199 weeks from the week of 6 Jan 2023, newest first. Nothing before 2023</td></tr>
+        <tr><td class="k">Focus</td><td><span class="badge rec">macro and flows</span> Transcripts are cut at chapters and topic-tagged. Rotation mining reads <code>macro-flows</code> and <code>untagged</code> sections</td></tr>
+        <tr><td class="k">Where the data lives</td><td><span class="badge rec">central Postgres</span> Database <code>rotation</code>, schema <code>rt</code>, roles <code>rotation_owner</code> / <code>rotation_ro</code></td></tr>
+        <tr><td class="k">Where prices come from</td><td><span class="badge rec">copy</span> value-invest-agent's yfinance loader, copied into this repo</td></tr>
+        <tr><td class="k">The daily videos</td><td><span class="badge rec">weekly only</span> Dailies are listed and dated only so the pick rule can run. No daily chapters or transcripts</td></tr>
+        <tr><td class="k">Transcript source</td><td><span class="badge rec">Supadata</span> Through transcript·lab's <code>index-rag --metadata-json</code>, 1 credit per video</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer style="margin-top:var(--s8)">
+  <p class="small">Sources: yt-dlp listings of all three tabs and ~490 per-video lookups (27 Oct 2026). Supadata <code>GET /v1/me</code> on all three keys. Read-only inspection of transcript-rag-agent, value-invest-agent, and nmp-central-ai's registry and Postgres. Styled with the portfolio house UI (<code>house.css</code>, copied unedited) at the house hue, because rotation-tracker has no registered hue yet (step 1).</p>
+</footer>
+
+</main>
+</body>
+</html>

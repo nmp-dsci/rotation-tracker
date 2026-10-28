@@ -4,8 +4,10 @@ Read what market commentators on YouTube say about money moving between sectors,
 turn it into dated, structured rotation calls, and test whether the stocks and
 sectors that get sold *because of a rotation* bounce back when the rotation ends.
 
-> **Status: M0, docs only.** This commit holds the README and `AGENTS.md`; there
-> is no code yet. The first build happens on a branch off `main`.
+> **Status: M1, data pipeline.** The source is FX Evolution's weekly market wrap
+> (YouTube `@fxevolutionvideo`) from 2023 onwards, one video per week, stored in the
+> shared Postgres and cut at its chapters so macro and flows commentary can be read
+> on its own. Plan of record: [`ai_specs/s00_data_pipeline.md`](ai_specs/s00_data_pipeline.md).
 >
 > Research code, not investment advice. Nothing here places orders.
 
@@ -79,7 +81,7 @@ video published after the close becomes tradable at the next open.
 | Milestone | Builds | Done when |
 |---|---|---|
 | **M0** | README, `AGENTS.md`, public repo | this commit |
-| **M1 corpus** | committed channel list, video catalog with exact publish times, transcripts | a backfill of the chosen channels is cataloged and fetched, with a cache so nothing is paid for twice |
+| **M1 corpus** | FX Evolution catalog with exact publish times, one wrap per week from 2023, transcripts cut at chapters and topic-tagged | every week since Jan 2023 has a transcript in `rt.transcripts`, with a cache so nothing is paid for twice |
 | **M2 extraction** | rotation-call schema, taxonomy, extractor, hand-labelled seed set | extraction is scored against the seed set (claim recall and precision, category and ticker resolution accuracy) and every call carries a verbatim quote |
 | **M3 signal** | price loader, relative strength and drawdown per category, rotation signal series | the signal for a known historical rotation lines up with what prices did |
 | **M4 backtest** | event study with controls, walk-forward splits, sealed holdout | excess returns at several horizons, with costs, reported against every control |
@@ -87,6 +89,44 @@ video published after the close becomes tradable at the next open.
 
 Each milestone starts with a short spec in `ai_specs/` and lands through a pull
 request.
+
+## Run it
+
+Needs `uv`, the shared platform (`make -C ../nmp-central-ai up`), a sibling checkout of
+[transcript-rag-agent](https://github.com/nmp-dsci/transcript-rag-agent), and Supadata keys
+in `~/.env`. Put the `rotation` block from `../nmp-central-ai/.db-urls.env` in `.env`.
+
+```bash
+uv sync
+uv run rt db migrate                  # schema rt in database rotation
+uv run rt catalog                     # ① list the channel (free)
+uv run rt refine --seed .rt/seed/exact_sample.json   # ② exact publish times (free)
+uv run rt pick                        # ③ one wrap per week (pick/v1)
+uv run rt credits                     # Supadata credits left (free)
+uv run rt ingest --max-credits 205    # ④ transcripts via transcript·lab, 1 credit each
+uv run rt sync                        # ⑤ copy into Postgres, cut at chapters
+uv run rt status                      # the funnel
+```
+
+### The viewer
+
+A local site for browsing the corpus: every weekly wrap, each transcript cut into chapter
+"tracks", Chroma's chunks, full-text search, a quarterly chart of themes by mentions, and the
+liner notes (what was built, where it lives, what it cost). It reads Postgres as `rotation_ro`,
+opens transcript·lab's Chroma store read-only, links to MLflow, and binds to 127.0.0.1 only.
+The look follows the Lovable "Sonora" music template, built on the portfolio's house UI. Plan
+of record: [`ai_specs/s01_viewer.md`](ai_specs/s01_viewer.md).
+
+```bash
+cd frontend && npm ci && npm run build && cd ..
+uv run rt serve                        # http://127.0.0.1:8089, the API and the built UI
+
+# while working on the UI, in two terminals:
+uv run rt serve --reload               # the API on :8089
+cd frontend && npm run dev             # the UI on http://127.0.0.1:5178, proxying /api
+
+cd frontend && npm run typecheck && npm run lint:design && npm test
+```
 
 ## Working on this repo
 

@@ -1,0 +1,18 @@
+# The portfolio site's contract (nmp-central-ai .lavish/s06_portfolio-app-plan.html): what a
+# frozen showcase build of the viewer would crawl. Not published: the viewer stays on this Mac
+# (127.0.0.1). A build sets SHOWCASE_BASE=/p/<slug>/.
+slug: rotation-tracker
+api: [/api, /healthz]
+# list routes whose ids open detail routes
+expand:
+  - list: /api/weeks
+    ids: "[*].video_id"
+    detail: [/api/weeks/{id}]
+# Transcripts are FX Evolution's words, fetched for research and never redistributed
+# (AGENTS.md rule 8). Counts, the chart and the pipeline may be frozen; transcript text may not.
+private:
+  - /api/weeks/{id}
+  - /api/weeks/{id}/chunks
+  - /api/search
+# The viewer has no write route.
+write: []

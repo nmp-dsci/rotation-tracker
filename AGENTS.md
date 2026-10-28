@@ -16,8 +16,9 @@ style, theme or stock and into another), and tests whether names sold down by
 a rotation rebound when it ends. Four stages: **extract → signal → backtest →
 listener**. `README.md` has the thesis and the roadmap.
 
-**Status: M0, docs only.** No code exists yet. Follow the layout below until
-real code replaces it, then follow the code.
+**Status: M1, data pipeline.** Source: FX Evolution's weekly market wrap,
+2023 onwards, one video per week (`pick/v1`). Read `ai_specs/s00_data_pipeline.md`
+before changing ingestion, and `ai_specs/s01_viewer.md` before changing the viewer.
 
 ## Vocabulary
 
@@ -84,6 +85,11 @@ real code replaces it, then follow the code.
   nothing.
 - Secrets come from the environment (`./.env`, then `~/.env`), never from code
   or config files.
+- The viewer (`frontend/`, React + Vite) is styled only by the house UI in
+  `.lavish/` (`house.css`, `project.css`, `fonts/`). No colour literal, no `--hue`
+  and no font size under `--t-2` in `frontend/src`: `npm run lint:design` fails on
+  them. Its API (`rt serve`) is read-only and binds to 127.0.0.1. Frontend tests use
+  synthetic fixtures, never corpus text.
 
 ## Shared platform
 
@@ -95,11 +101,16 @@ tracking, storage or deployment.
   back to a `sqlite:` or `file:` store. Experiments are named
   `rotation-tracker/<purpose>` (e.g. `rotation-tracker/extract`,
   `rotation-tracker/backtest`). Never hardcode an experiment id.
-- **Not yet onboarded.** Before the first tracked run, add this project to
-  `../nmp-central-ai/registry/projects.yaml` and follow
-  `../nmp-central-ai/docs/onboarding.md` (a zero-cost `smoke` command included).
-- **Postgres**, if the project needs it, is one database on the shared server,
-  declared in the registry. Never add a database service to this repo.
+- **Onboarded as P11** in `../nmp-central-ai/registry/projects.yaml`. Smokes:
+  `uv run rt smoke` (MLflow) and `uv run rt db smoke` (Postgres). Check with
+  `make -C ../nmp-central-ai check ARGS="--only P11"`.
+- **Postgres** is database `rotation`, schema `rt`. `rotation_owner` runs the
+  pipeline, `rotation_ro` is for analysis, and the superuser URL is for
+  `rt db migrate` only. URLs come from `../nmp-central-ai/.db-urls.env` into `.env`.
+  Never add a database service to this repo.
+- **Transcripts** come from Supadata through transcript·lab's
+  `index-rag --metadata-json` (1 credit each). Never call its HTTP ingest endpoints
+  or `bulk-index` (2–3 credits each), and never write to its Chroma store.
 - Outside the workspace, point `MLFLOW_TRACKING_URI` at any MLflow 3 server.
 
 ## Prior art in the workspace
@@ -117,35 +128,37 @@ it, copy it, or write it fresh.
 - **`../ConvFinQA-agent`**: the single model-call module pattern and MLflow
   tracking helpers.
 
-## Expected layout
-
-Guidance until code exists:
+## Layout
 
 ```text
-channels.yaml        the sources followed; committed because the choice is worth reviewing in a diff
-taxonomy/            versioned category tree with a proxy per node
 src/rotation_tracker/
-  config.py          settings; reads ./.env then ~/.env
-  llm.py             the one module every model call goes through
-  ingest/            channel catalog, publish times, transcript fetch + cache
-  extract/           rotation-call schema, extractor, taxonomy resolution
-  market/            prices, constituents, relative strength, drawdown (all as_of)
-  signal/            per-category signal series, candidates, rotation-end detection
-  backtest/          event study, controls, splits, costs, reports
-  listener/          scheduled poll, incremental run, watchlist
-  cli.py             one entry point per stage
-data/
-  seed/              hand-labelled calls for extraction evals
+  config.py          settings; reads ~/.env then ./.env, exports nothing
+  db.py              connections; `rt db migrate` applies sql/*.sql as the superuser
+  youtube.py         yt-dlp: tab listings, per-video publish time + chapters, cached in .rt/ytdlp/
+  pick.py            pick/v1, the weekly pick rule (pure, tested)
+  transcript_lab.py  index-rag subprocess + read-only Chroma reader
+  supadata.py        credit balance (GET /v1/me, free)
+  topics.py          topic/v1 chapter tags and the cut of a transcript at its chapters
+  pipeline.py        catalog → refine → pick → ingest → sync, status
+  tracking.py        MLflow runs (experiment rotation-tracker/ingest)
+  serving/           the viewer's read-only API (`rt serve`): app.py routes, store.py
+                     reads, themes.py the chart's keyword themes (themes/v0, not signals)
+  cli.py             `rt`
+frontend/            the viewer: React + Vite on the house UI, design lint, vitest
+sql/                 001_rt.sql: schema rt, idempotent
+tests/               pick rule, topic tags, chapter cut, viewer API (offline)
 ai_specs/            sNN_*.md specs, the plan of record
-.lavish/             review artifacts
-tests/
+.lavish/             house.css, project.css (hue 15) and fonts from nmp-central-ai;
+                     review artifacts
+showcase.yaml        what a portfolio-site build of the viewer may freeze, and what it may not
+.rt/                 caches and seed data, gitignored
 ```
 
-## Open decisions (for the M1 spec)
+Still to come, per the roadmap: `market/` (prices), `extract/` (rotation calls with
+one module for every model call), `signal/`, `backtest/`, `listener/`.
 
-- Transcript source and cost per video; reuse transcript·lab or not.
-- Storage: a local DuckDB file or a database on the shared Postgres.
-- Model and runtime for extraction, and its billing.
-- The channel list and backfill window.
+## Open decisions
+
+- Model and runtime for rotation-call extraction, and its billing.
 - Taxonomy: which sector, industry, style and theme nodes, and their proxies.
 - Drawdown threshold, horizons, cost model and holdout date for the backtest.
