@@ -168,7 +168,7 @@ def assets(
                 JOIN rt.assets s ON s.id = x.asset_id
                 WHERE (%(kind)s::text IS NULL OR s.kind = %(kind)s)
                   AND (%(q)s::text IS NULL OR s.name ILIKE %(q)s OR s.id ILIKE %(q)s)
-                GROUP BY s.id ORDER BY mentions DESC, s.name LIMIT 300""",
+                GROUP BY s.id ORDER BY mentions DESC, s.name""",
             a,
         ).fetchall()
         kinds = cur.execute(
@@ -376,16 +376,20 @@ class Labeler:
         play = fixes.get("play")
         if play and play not in PLAYS:
             raise ValueError(f"unknown play {play!r}")
-        if "direction" in fixes:
-            allowed = DIRECTIONS.get(play or "", ())
-            if play and fixes["direction"] not in allowed:
-                raise ValueError(f"direction {fixes['direction']!r} does not fit play {play!r}")
         with db.connect() as con:
             hit = con.execute(
-                "SELECT 1 FROM rt.spot_checks WHERE mention_id = %s", (mention_id,)
+                """SELECT m.play FROM rt.spot_checks c JOIN rt.mentions m ON m.id = c.mention_id
+                   WHERE c.mention_id = %s""",
+                (mention_id,),
             ).fetchone()
             if hit is None:
                 raise LookupError(f"mention {mention_id} is not in the spot-check queue")
+            if "direction" in fixes:
+                target = play or hit[0]
+                if fixes["direction"] not in DIRECTIONS.get(target, ()):
+                    raise ValueError(
+                        f"direction {fixes['direction']!r} does not fit play {target!r}"
+                    )
             if fixes.get("asset_id"):
                 ok = con.execute(
                     "SELECT 1 FROM rt.assets WHERE id = %s", (fixes["asset_id"],)

@@ -430,3 +430,56 @@ def test_labels_write_with_the_flag() -> None:
     assert r.status_code == 200 and w.saved == [(7, "fix", {"play": "flow"}, None)]
     assert c.post("/api/labels", json={"mention_id": 404, "verdict": "wrong"}).status_code == 404
     assert c.post("/api/labels", json={"mention_id": 7, "verdict": "maybe"}).status_code == 422
+
+
+class _FakeCon:
+    def __init__(self, play: str) -> None:
+        self.play = play
+        self.inserted = False
+
+    def __enter__(self) -> "_FakeCon":
+        return self
+
+    def __exit__(self, *a: Any) -> None:
+        return None
+
+    def execute(self, sql: str, params: Any = None) -> Any:
+        class R:
+            def __init__(s, row: Any) -> None:
+                s.row = row
+
+            def fetchone(s) -> Any:
+                return s.row
+
+        if "spot_checks" in sql:
+            return R((self.play,))
+        self.inserted = True
+        return R((1, 7, "fix", {}, None, None))
+
+    def commit(self) -> None:
+        return None
+
+
+def _labeler_with(monkeypatch: pytest.MonkeyPatch, play: str) -> tuple[Any, "_FakeCon"]:
+    from rotation_tracker import db
+    from rotation_tracker.serving.mining import Labeler
+
+    con = _FakeCon(play)
+    monkeypatch.setattr(db, "connect", lambda: con)
+    return Labeler(), con
+
+
+def test_direction_fix_alone_is_checked_against_the_stored_play(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from rotation_tracker.mining.schema import DIRECTIONS
+
+    lab, con = _labeler_with(monkeypatch, "rotation")
+    bad = "no-such-direction"
+    assert bad not in DIRECTIONS["rotation"]
+    with pytest.raises(ValueError, match="does not fit play 'rotation'"):
+        lab.save(7, "fix", {"direction": bad}, None)
+    assert not con.inserted
+    good = DIRECTIONS["rotation"][0]
+    lab.save(7, "fix", {"direction": good}, None)
+    assert con.inserted
