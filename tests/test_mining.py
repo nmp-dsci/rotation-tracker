@@ -360,7 +360,7 @@ class FakeStore:
     def search(self, q: str, topics: list[str], order: str, limit: int) -> dict[str, Any]:
         return {}
 
-    def chart(self, quarter: date | None) -> dict[str, Any]:
+    def chart(self, quarter: date | None, view: str = "themes") -> dict[str, Any]:
         return {}
 
     def pipeline(self) -> dict[str, Any]:
