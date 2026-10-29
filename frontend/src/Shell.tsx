@@ -4,11 +4,12 @@ import { type Health, api, useGet } from './lib/api';
 import { theme, toggleTheme } from './theme';
 
 /** The pages, in the order of the work: the wraps, the calls mined from them, the assets they are about,
- *  what they say, how often, how it was built. */
+ *  how well the mining did, what they say, how often, how it was built. */
 const NAV: [string, string][] = [
   ['/weeks', 'Weeks'],
   ['/mentions', 'Mentions'],
   ['/assets', 'Assets'],
+  ['/mining', 'Miner'],
   ['/search', 'Search'],
   ['/chart', 'Chart'],
   ['/pipeline', 'Liner notes'],
@@ -21,7 +22,6 @@ export function Shell() {
   const { pathname } = useLocation();
   const { data: health, error } = useGet<Health>(api.health());
   const [scrolled, setScrolled] = useState(false);
-  const [menu, setMenu] = useState(false);
   const [mode, setMode] = useState(theme());
 
   useEffect(() => {
@@ -31,17 +31,12 @@ export function Shell() {
     return () => window.removeEventListener('scroll', on);
   }, []);
   useEffect(() => {
-    setMenu(false);
     window.scrollTo(0, 0);
+    // On a narrow screen the tabs scroll sideways; keep the current one in view.
+    document.querySelector('.bar-nav a.on')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
   }, [pathname]);
-  useEffect(() => {
-    if (!menu) return;
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setMenu(false);
-    window.addEventListener('keydown', esc);
-    return () => window.removeEventListener('keydown', esc);
-  }, [menu]);
 
-  const over = OVER_IMAGE.test(pathname) && !scrolled && !menu;
+  const over = OVER_IMAGE.test(pathname) && !scrolled;
   const themeBtn = (
     <button
       type="button"
@@ -57,11 +52,6 @@ export function Shell() {
       Channel ↗
     </a>
   );
-  const links = NAV.map(([to, label]) => (
-    <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'on' : '')}>
-      {label}
-    </NavLink>
-  ));
 
   return (
     <>
@@ -73,35 +63,18 @@ export function Shell() {
           Rotation Tracker
         </Link>
         <nav aria-label="Pages" className="bar-nav">
-          {links}
+          {NAV.map(([to, label]) => (
+            <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'on' : '')}>
+              {label}
+            </NavLink>
+          ))}
         </nav>
         <div className="bar-end">
           <HealthDot health={health} error={error} />
           {themeBtn}
           {channel}
-          <button
-            type="button"
-            className="pill ghost menu-btn"
-            aria-expanded={menu}
-            aria-controls="drawer"
-            onClick={() => setMenu((m) => !m)}
-          >
-            {menu ? 'Close' : 'Menu'}
-          </button>
         </div>
       </header>
-      <div id="drawer" className={`drawer${menu ? ' open' : ''}`} hidden={!menu}>
-        <nav aria-label="Pages (menu)">
-          <NavLink to="/" end>
-            Home
-          </NavLink>
-          {links}
-        </nav>
-        <div className="drawer-end">
-          {themeBtn}
-          {channel}
-        </div>
-      </div>
       <main id="main">
         <Outlet />
       </main>

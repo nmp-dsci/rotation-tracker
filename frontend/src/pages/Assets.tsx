@@ -68,8 +68,12 @@ export function Assets() {
                 <th>Proxy</th>
                 <th className="n">Mentions</th>
                 <th className="n">Weeks</th>
-                <th className="n">↑ Bullish</th>
-                <th className="n">↓ Bearish</th>
+                <th className="n">
+                  <span className="stance bullish">↑</span> Bullish
+                </th>
+                <th className="n">
+                  <span className="stance bearish">↓</span> Bearish
+                </th>
                 <th className="n">Rotation</th>
                 <th>Last</th>
               </tr>
@@ -85,8 +89,8 @@ export function Assets() {
                   <td className="mono">{a.proxy ?? 'none'}</td>
                   <td className="n">{int(a.mentions)}</td>
                   <td className="n">{int(a.weeks)}</td>
-                  <td className="n">{int(a.bullish)}</td>
-                  <td className="n">{int(a.bearish)}</td>
+                  <td className={`n${a.bullish ? ' bull' : ''}`}>{int(a.bullish)}</td>
+                  <td className={`n${a.bearish ? ' bear' : ''}`}>{int(a.bearish)}</td>
                   <td className="n">{int(a.rotation)}</td>
                   <td className="mono">{date(a.last_week)}</td>
                 </tr>

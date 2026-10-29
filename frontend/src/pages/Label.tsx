@@ -16,6 +16,7 @@ const DIRECTIONS: Record<Play, string[]> = {
   other: ['bullish', 'bearish', 'neutral'],
 };
 const VERDICT: Record<OwnerLabel['verdict'], string> = { correct: '✓ right', wrong: '✕ not a mention', fix: '✎ fixed' };
+const VERDICT_BADGE: Record<OwnerLabel['verdict'], string> = { correct: 'ok', wrong: 'bad', fix: 'warn' };
 
 /** The owner's fifty spot-checks of the gold set. Writes only under `rt serve --label`. */
 export function Label() {
@@ -88,7 +89,7 @@ function Check({ it, writable, onSaved }: { it: SpotCheck; writable: boolean; on
         <a className="at" href={youtube(it.video_id, it.t_seconds)} target="_blank" rel="noreferrer">
           ▶ {dur(it.t_seconds)}
         </a>
-        {it.owner && <span className="badge ok">{VERDICT[it.owner.verdict]}</span>}
+        {it.owner && <span className={`badge ${VERDICT_BADGE[it.owner.verdict]}`}>{VERDICT[it.owner.verdict]}</span>}
       </div>
       <p className="context">
         <span className="faint">…{it.before}</span>

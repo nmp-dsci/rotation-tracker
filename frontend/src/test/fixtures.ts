@@ -123,6 +123,7 @@ export const search: SearchResult = {
 };
 
 export const chart: Chart = {
+  view: 'themes',
   version: 'themes/v0',
   quarter: '2026-07-01',
   previous: '2026-04-01',
@@ -133,12 +134,24 @@ export const chart: Chart = {
   history_quarters: ['2026-04-01', '2026-07-01'],
   weeks_in_quarter: 13,
   entries: [
-    { theme: 'Semiconductors', mentions: 130, weeks_hit: 13, rate: 10, rank: 1, prev_rank: 2, move: 'up', history: [5, 10] },
-    { theme: 'Utilities', mentions: 13, weeks_hit: 4, rate: 1, rank: 2, prev_rank: null, move: 'new', history: [0, 1] },
+    { id: 'Semiconductors', theme: 'Semiconductors', kind: null, mentions: 130, weeks_hit: 13, rate: 10, rank: 1, prev_rank: 2, move: 'up', total: 195, history: [5, 10], bullish: [2, 6], bearish: [1, 2] },
+    { id: 'Utilities', theme: 'Utilities', kind: null, mentions: 13, weeks_hit: 4, rate: 1, rank: 2, prev_rank: null, move: 'new', total: 13, history: [0, 1], bullish: [0, 0], bearish: [0, 1] },
+    { id: 'China', theme: 'China', kind: null, mentions: 0, weeks_hit: 0, rate: 0, rank: null, prev_rank: 1, move: 'none', total: 260, history: [20, 0], bullish: [4, 0], bearish: [9, 0] },
   ],
-  dropped: ['China'],
+  dropped: [],
   themes: [{ name: 'Semiconductors', pattern: '\\m(?:chips?)\\M' }],
   topics: ['macro-flows', 'untagged'],
+};
+
+export const chartAssets: Chart = {
+  ...chart,
+  view: 'assets',
+  version: 'play/v1',
+  entries: [
+    { id: 'commodity:gold', theme: 'Gold', kind: 'commodity', mentions: 26, weeks_hit: 12, rate: 2, rank: 1, prev_rank: 1, move: 'same', total: 52, history: [2, 2], bullish: [1.5, 1], bearish: [0.25, 0.5] },
+    { id: 'stock:NVDA', theme: 'Nvidia', kind: 'stock', mentions: 4, weeks_hit: 3, rate: 0.3077, rank: 2, prev_rank: null, move: 'new', total: 4, history: [0, 0.3077], bullish: [0, 0.2308], bearish: [0, 0] },
+    { id: 'crypto:btc', theme: 'Bitcoin', kind: 'crypto', mentions: 0, weeks_hit: 0, rate: 0, rank: null, prev_rank: 2, move: 'none', total: 90, history: [6.9231, 0], bullish: [3, 0], bearish: [2, 0] },
+  ],
 };
 
 export const pipeline: Pipeline = {
@@ -270,7 +283,7 @@ export function respond(url: string): unknown {
   if (path === '/api/weeks/AAAAAAAAAAA') return week;
   if (path === '/api/weeks/AAAAAAAAAAA/chunks') return chunks;
   if (path === '/api/search') return search;
-  if (path === '/api/chart') return chart;
+  if (path === '/api/chart') return url.includes('view=assets') ? chartAssets : chart;
   if (path === '/api/pipeline') return pipeline;
   if (path === '/api/mentions') return mentions;
   if (path === '/api/assets') return assets;

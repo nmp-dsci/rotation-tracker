@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Two arrows chasing round a circle: rotation. A favicon can't read the page's tokens, so these
+       are the house accent and accent-ink tokens at the project's hue (15), light and dark. -->
+  <style>
+    .tile { fill: oklch(0.48 0.13 15); }
+    .ink { fill: #FFFFFF; stroke: #FFFFFF; }
+    @media (prefers-color-scheme: dark) {
+      .tile { fill: oklch(0.78 0.13 15); }
+      .ink { fill: #0E1512; stroke: #0E1512; }
+    }
+  </style>
+  <rect class="tile" width="32" height="32" rx="7"/>
+  <g class="ink" stroke-width="3" stroke-linecap="round">
+    <path fill="none" d="M8.01 13.09 A8.5 8.5 0 0 1 23.99 13.09"/>
+    <path fill="none" d="M23.99 18.91 A8.5 8.5 0 0 1 8.01 18.91"/>
+    <path stroke="none" d="M26.47 11.12 L20.83 13.18 L25.02 15.91 Z"/>
+    <path stroke="none" d="M5.53 20.88 L11.17 18.82 L6.98 16.09 Z"/>
+  </g>
+</svg>

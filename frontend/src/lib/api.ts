@@ -101,16 +101,22 @@ export type SearchResult = {
 };
 
 export type ChartEntry = {
-  theme: string;
+  id: string; // the theme's name, or the asset id on the assets view
+  theme: string; // what to show: the theme, or the asset's name
+  kind: string | null; // the asset's layer on the assets view
   mentions: number;
   weeks_hit: number;
   rate: number;
-  rank: number;
+  rank: number | null; // null: not mentioned in the quarter
   prev_rank: number | null;
-  move: 'new' | 'up' | 'down' | 'same';
+  move: 'new' | 'up' | 'down' | 'same' | 'none';
+  total: number; // mentions in every quarter on record
   history: number[];
+  bullish: number[];
+  bearish: number[];
 };
 export type Chart = {
+  view: 'themes' | 'assets';
   version: string;
   quarter: string;
   previous: string | null;
@@ -360,7 +366,7 @@ export const api = {
   chunks: (id: string) => `/api/weeks/${seg(id)}/chunks`,
   search: (q: string, topics: Topic[], order: 'recent' | 'rank') =>
     `/api/search${qs({ q, topics: topics.join(','), order })}`,
-  chart: (quarter?: string | null) => `/api/chart${qs({ quarter })}`,
+  chart: (quarter?: string | null, view?: string | null) => `/api/chart${qs({ quarter, view })}`,
   pipeline: () => '/api/pipeline',
   mentions: (f: MentionFilters) => `/api/mentions${qs(f)}`,
   assets: (kind?: string | null, q?: string | null) => `/api/assets${qs({ kind, q })}`,

@@ -6,7 +6,7 @@
 import { type ReactNode, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { ChartEntry, Week } from './api';
-import { DASH, TOPIC_LABEL, type ThumbSize, date, dur, thumb } from './format';
+import { DASH, TOPIC_LABEL, type ThumbSize, date, dur, perWrap, quarter, thumb } from './format';
 
 // ── states ────────────────────────────────────────────────────────────────
 export function ErrorNote({ error, what }: { error: string; what?: string }) {
@@ -168,28 +168,105 @@ export function Bars({ bars, caption, every = 1, height = 160 }: { bars: Bar[]; 
   );
 }
 
-/** Mentions per wrap over the last quarters: a 2px line, the last point marked. */
-export function Spark({ values, label }: { values: number[]; label: string }) {
-  const w = 120;
-  const h = 36;
-  const pad = 4;
+/**
+ * Mentions per wrap in every quarter on record, so every row shares one x scale: the whole count
+ * dotted, and the part of it inside bullish (green) and bearish (red) calls as solid lines on the
+ * same y scale, so the gap under the dots is what no call classified. Lines stretch to the
+ * column, a hairline marks each new year and a dot the chosen quarter. The SVG stretches; the
+ * dot is HTML so it stays round. Each quarter is a hover target with all three figures.
+ */
+export function Spark({
+  values,
+  bullish = [],
+  bearish = [],
+  quarters,
+  at,
+  label,
+  unit = 'mentions',
+}: {
+  values: number[];
+  bullish?: number[];
+  bearish?: number[];
+  quarters: string[];
+  at: number;
+  label: string;
+  unit?: string;
+}) {
   if (values.length < 2) return <span className="spark-none">{DASH}</span>;
-  const max = Math.max(...values, 0.0001);
-  const x = (i: number) => pad + (i * (w - 2 * pad)) / (values.length - 1);
-  const y = (v: number) => h - pad - (v / max) * (h - 2 * pad);
-  const pts = values.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
-  const last = values.length - 1;
+  const max = Math.max(...values, ...bullish, ...bearish, 0.0001);
+  const x = (i: number) => (i * 100) / (values.length - 1);
+  const y = (v: number) => 100 - (v / max) * 100;
+  const line = (vs: number[]) => vs.map((v, i) => `${x(i)},${y(v)}`).join(' ');
+  const half = 50 / (values.length - 1);
   return (
-    <svg className="spark" width={w} height={h} viewBox={`0 0 ${w} ${h}`} role="img" aria-label={label}>
-      <title>{label}</title>
-      <line className="base" x1={pad} x2={w - pad} y1={h - pad} y2={h - pad} />
-      <polyline points={pts} />
-      <circle cx={x(last)} cy={y(values[last])} r={4} />
+    <span className="spark" role="img" aria-label={label}>
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        {quarters.map((q, i) =>
+          i > 0 && q.endsWith('-01-01') ? <line key={q} className="year" x1={x(i)} x2={x(i)} y1={0} y2={100} /> : null,
+        )}
+        <line className="base" x1={0} x2={100} y1={100} y2={100} />
+        <polyline className="all" points={line(values)} />
+        {bearish.length === values.length && <polyline className="down" points={line(bearish)} />}
+        {bullish.length === values.length && <polyline className="up" points={line(bullish)} />}
+      </svg>
+      {at >= 0 && <span className="spark-dot" style={{ left: `${x(at)}%`, top: `${y(values[at])}%` }} />}
+      {values.map((v, i) => {
+        const l = Math.max(0, x(i) - half);
+        const sides = bullish.length || bearish.length
+          ? ` · ▲ ${perWrap(bullish[i] ?? 0)} bullish · ▼ ${perWrap(bearish[i] ?? 0)} bearish`
+          : '';
+        return (
+          <span
+            key={quarters[i] ?? i}
+            className="spark-hit"
+            style={{ left: `${l}%`, width: `${Math.min(100, x(i) + half) - l}%` }}
+            title={`${quarters[i] ? quarter(quarters[i]) : ''}: ${perWrap(v)} ${unit} per wrap${sides}`}
+          />
+        );
+      })}
+    </span>
+  );
+}
+
+/** The key to a Spark's three lines, drawn with the same strokes. */
+export function SparkKey({ unit = 'mentions' }: { unit?: string }) {
+  const swatch = (cls: string) => (
+    <svg className="spark-swatch" viewBox="0 0 20 8" aria-hidden="true">
+      <line className={cls} x1={1} x2={19} y1={4} y2={4} />
     </svg>
+  );
+  return (
+    <span className="spark-key">
+      <span>{swatch('all')} all {unit}</span>
+      <span>{swatch('up')} ▲ in bullish calls</span>
+      <span>{swatch('down')} ▼ in bearish calls</span>
+    </span>
+  );
+}
+
+/** The years along a column of Sparks, on the same x scale. */
+export function SparkAxis({ quarters }: { quarters: string[] }) {
+  if (quarters.length < 2) return null;
+  return (
+    <span className="spark-axis" aria-hidden="true">
+      {quarters.map((q, i) =>
+        q.endsWith('-01-01') ? (
+          <span key={q} style={{ left: `${(i * 100) / (quarters.length - 1)}%` }}>
+            {q.slice(0, 4)}
+          </span>
+        ) : null,
+      )}
+    </span>
   );
 }
 
 export function Move({ e }: { e: ChartEntry }) {
+  if (e.move === 'none' || e.rank === null)
+    return (
+      <span className="move" title="Not mentioned this quarter">
+        {DASH}
+      </span>
+    );
   if (e.move === 'new') return <span className="badge rec">New</span>;
   if (e.move === 'same')
     return (

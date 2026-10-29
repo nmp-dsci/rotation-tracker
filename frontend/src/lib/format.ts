@@ -70,6 +70,11 @@ export function quarter(iso: string): string {
   return `Q${Math.floor(d.getUTCMonth() / 3) + 1} ${d.getUTCFullYear()}`;
 }
 
+/** A rate per wrap: one decimal, two below one (most assets come up less than weekly). */
+export function perWrap(v: number): string {
+  return v >= 1 || v === 0 ? v.toFixed(1) : v.toFixed(2);
+}
+
 export function year(iso: string): number {
   return Number(iso.slice(0, 4));
 }

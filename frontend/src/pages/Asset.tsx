@@ -81,11 +81,11 @@ export function AssetPage() {
           <span className="f-l">of {int(mined)} mined weeks mention it</span>
         </div>
         <div className="figure">
-          <span className="f-n">↑ {int(up)}</span>
+          <span className="f-n bull">↑ {int(up)}</span>
           <span className="f-l">bullish (rotation in counts here)</span>
         </div>
         <div className="figure">
-          <span className="f-n">↓ {int(down)}</span>
+          <span className="f-n bear">↓ {int(down)}</span>
           <span className="f-l">bearish (rotation out counts here)</span>
         </div>
       </section>
@@ -139,8 +139,14 @@ export function AssetPage() {
               <thead>
                 <tr>
                   <th>Week</th>
-                  <th className="n">↑</th>
-                  <th className="n">↓</th>
+                  <th className="n">
+                    <span className="stance bullish">↑</span>
+                    <span className="sr-only"> bullish</span>
+                  </th>
+                  <th className="n">
+                    <span className="stance bearish">↓</span>
+                    <span className="sr-only"> bearish</span>
+                  </th>
                   <th className="n">·</th>
                   <th className="n">Rotation</th>
                 </tr>
@@ -151,8 +157,8 @@ export function AssetPage() {
                   .map((c) => (
                     <tr key={c.video_id}>
                       <td className="k">{date(c.week_friday)}</td>
-                      <td className="n">{c.up}</td>
-                      <td className="n">{c.down}</td>
+                      <td className={`n${c.up ? ' bull' : ''}`}>{c.up}</td>
+                      <td className={`n${c.down ? ' bear' : ''}`}>{c.down}</td>
                       <td className="n">{c.flat}</td>
                       <td className="n">{c.rotation}</td>
                     </tr>

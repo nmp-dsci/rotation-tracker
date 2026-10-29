@@ -48,6 +48,7 @@
   --amber:#8A5006; --amber-soft:#F6E6CF;
   --red:#8A2B1D;   --red-soft:#F5DCD7;
   --blue:#1F5FA8;  --blue-soft:#DEE9F7;
+  --green:#1E6B3A; --green-soft:#DCEFE1;
 
   /* type: one superfamily, three jobs */
   --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
@@ -85,6 +86,7 @@
     --amber:#D99A4E; --amber-soft:#3A2A14;
     --red:#E08A7A;   --red-soft:#3A1E1A;
     --blue:#7FA9FF;  --blue-soft:#1A2440;
+    --green:#6CC488; --green-soft:#17301F;
     --shadow:0 1px 2px rgb(0 0 0 / .4), 0 12px 28px -18px rgb(0 0 0 / .65);
   }
 }
@@ -101,6 +103,7 @@
   --amber:#D99A4E; --amber-soft:#3A2A14;
   --red:#E08A7A;   --red-soft:#3A1E1A;
   --blue:#7FA9FF;  --blue-soft:#1A2440;
+  --green:#6CC488; --green-soft:#17301F;
   --shadow:0 1px 2px rgb(0 0 0 / .4), 0 12px 28px -18px rgb(0 0 0 / .65);
 }
 
@@ -296,5 +299,6 @@ button.ghost{ background:transparent; color:var(--accent); }
    @contrast --amber --bg 4.5 | --amber --amber-soft 4.5
    @contrast --red --bg 4.5 | --red --red-soft 4.5
    @contrast --blue --bg 4.5 | --blue --blue-soft 4.5
+   @contrast --green --bg 4.5 | --green --green-soft 4.5
    @contrast --line-3 --bg 3.0 | --line-3 --panel 3.0
    --------------------------------------------------------------------------- */

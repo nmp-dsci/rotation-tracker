@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { type Mentions as MentionsT, PLAYS, type Play, api, useGet } from '../lib/api';
@@ -23,7 +24,7 @@ export function Mentions() {
     next.delete('limit');
     setParams(next, { replace: true });
   };
-  const chips = (key: string, label: string, values: [string, string][]) => (
+  const chips = (key: string, label: string, values: [string, ReactNode][]) => (
     <div className="chips-row" role="group" aria-label={label}>
       <button type="button" className="chip-btn" aria-pressed={!get(key)} onClick={() => set(key, null)}>
         All
@@ -55,9 +56,9 @@ export function Mentions() {
       <div className="filters" role="group" aria-label="Filter the mentions">
         {chips('play', 'Play', PLAYS.map((p: Play) => [p, `${PLAY_LABEL[p]}${n('play', p)}`]))}
         {chips('stance', 'Stance', [
-          ['bullish', `↑ Bullish${n('stance', 'bullish')}`],
-          ['bearish', `↓ Bearish${n('stance', 'bearish')}`],
-          ['neutral', `· Neutral${n('stance', 'neutral')}`],
+          ['bullish', <><span className="stance bullish">↑</span> Bullish{n('stance', 'bullish')}</>],
+          ['bearish', <><span className="stance bearish">↓</span> Bearish{n('stance', 'bearish')}</>],
+          ['neutral', <><span className="stance neutral">·</span> Neutral{n('stance', 'neutral')}</>],
         ])}
         {chips('speaker', 'Speaker', [
           ['him', `His view${n('speaker', 'him')}`],
