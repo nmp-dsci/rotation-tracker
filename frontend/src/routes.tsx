@@ -1,7 +1,12 @@
 import { Link, type RouteObject, useRouteError } from 'react-router-dom';
 import { Shell } from './Shell';
+import { AssetPage } from './pages/Asset';
+import { Assets } from './pages/Assets';
 import { ChartPage } from './pages/Chart';
 import { Home } from './pages/Home';
+import { Label } from './pages/Label';
+import { Mentions } from './pages/Mentions';
+import { Mining } from './pages/Mining';
 import { Pipeline } from './pages/Pipeline';
 import { Search } from './pages/Search';
 import { WeekPage } from './pages/Week';
@@ -20,6 +25,11 @@ export const routes: RouteObject[] = [
       { id: 'home', path: '/', element: <Home /> },
       { id: 'weeks', path: '/weeks', element: <Weeks /> },
       { id: 'week', path: '/weeks/:id', element: <WeekPage /> },
+      { id: 'mentions', path: '/mentions', element: <Mentions /> },
+      { id: 'assets', path: '/assets', element: <Assets /> },
+      { id: 'asset', path: '/assets/:id', element: <AssetPage /> },
+      { id: 'mining', path: '/mining', element: <Mining /> },
+      { id: 'label', path: '/label', element: <Label /> },
       { id: 'search', path: '/search', element: <Search /> },
       { id: 'chart', path: '/chart', element: <ChartPage /> },
       { id: 'pipeline', path: '/pipeline', element: <Pipeline /> },

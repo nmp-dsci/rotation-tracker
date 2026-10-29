@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { routes } from './routes';
@@ -62,6 +62,26 @@ describe('every page renders from the API', () => {
     expect(screen.getByText('New')).toBeTruthy();
     expect(screen.getByText(/not a signal/)).toBeTruthy();
     expect(screen.getByText('China')).toBeTruthy();
+    expect(screen.getByText(/none in Q3 2026/)).toBeTruthy();
+  });
+
+  it('chart: lists every asset, filters by layer and orders by all time', async () => {
+    open('/chart?view=assets');
+    expect((await screen.findByRole('link', { name: 'Gold' })).getAttribute('href')).toBe('/assets/commodity%3Agold');
+    expect(screen.getByText('0.31')).toBeTruthy(); // a rate under one keeps two decimals
+    const names = () => screen.getAllByRole('listitem').map((li) => li.querySelector('.c-name a')?.textContent);
+    expect(names()).toEqual(['Gold', 'Nvidia', 'Bitcoin']);
+    fireEvent.click(screen.getByRole('button', { name: 'All time first' }));
+    expect(names()).toEqual(['Bitcoin', 'Gold', 'Nvidia']);
+    fireEvent.click(screen.getByRole('button', { name: 'Stocks 1' }));
+    expect(names()).toEqual(['Nvidia']);
+  });
+
+  it('chart: each sparkline splits a quarter into bullish and bearish, with a key', async () => {
+    open('/chart');
+    expect(await screen.findByText('▲ in bullish calls')).toBeTruthy();
+    expect(screen.getByText('▼ in bearish calls')).toBeTruthy();
+    expect(screen.getByTitle('Q3 2026: 10.0 mentions per wrap · ▲ 6.0 bullish · ▼ 2.0 bearish')).toBeTruthy();
   });
 
   it('liner notes: stores, credits and decisions', async () => {
@@ -69,5 +89,53 @@ describe('every page renders from the API', () => {
     expect((await screen.findAllByText('rt.videos')).length).toBe(2); // the Catalog track and the tables
     expect(screen.getByText('98 / 100 left')).toBeTruthy();
     expect(screen.getByText('@example')).toBeTruthy();
+  });
+
+  it('mentions: the quote, its play, the asset chips and the timestamp link', async () => {
+    open('/mentions');
+    expect(await screen.findByText(/money leaves widgets for gadgets/)).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Widgets/ }).getAttribute('href')).toBe('/assets/theme%3Awidgets');
+    expect(screen.getByText('? unknown')).toBeTruthy();
+    expect(screen.getByRole('link', { name: '▶ 2:05' }).getAttribute('href')).toContain('t=125s');
+  });
+
+  it('assets: ranked with layer and proxy', async () => {
+    open('/assets');
+    expect(await screen.findByRole('link', { name: 'Widgets' })).toBeTruthy();
+    expect(screen.getByText('WDGT')).toBeTruthy();
+  });
+
+  it('an asset: the strip marks a bearish week and an unmined one', async () => {
+    open('/assets/theme%3Awidgets');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Widgets' })).toBeTruthy();
+    expect(screen.getByLabelText(/23 Oct 2026: 1 bearish, 1 rotation call/)).toBeTruthy();
+    expect(screen.getByLabelText(/16 Oct 2026: not mined yet/)).toBeTruthy();
+  });
+
+  it('an asset not in the map says so', async () => {
+    open('/assets/theme%3Anope');
+    expect(await screen.findByText(/is not an asset in assets\/v1/)).toBeTruthy();
+  });
+
+  it('miner: the targets show a missed measure', async () => {
+    open('/mining');
+    expect(await screen.findByRole('heading', { name: 'Targets' })).toBeTruthy();
+    expect(screen.getByText('✕ 1 missed')).toBeTruthy();
+    expect(screen.getByText('✕ missed')).toBeTruthy();
+    expect(screen.getByText('Asset accuracy')).toBeTruthy();
+    expect(screen.getByText('“gadgets”')).toBeTruthy();
+  });
+
+  it('miner: has its own tab in the top bar, lit on its page', async () => {
+    open('/mining');
+    const tab = within(await screen.findByRole('navigation', { name: 'Pages' })).getByRole('link', { name: 'Miner' });
+    expect(tab.getAttribute('href')).toBe('/mining');
+    expect(tab.className).toBe('on');
+  });
+
+  it('spot-check: read-only without --label', async () => {
+    open('/label');
+    expect(await screen.findByText(/This viewer cannot record/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Right/ })).toBeNull();
   });
 });

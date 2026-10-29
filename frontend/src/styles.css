@@ -51,8 +51,8 @@ select{ background:var(--panel); color:var(--ink); border:1px solid var(--line-3
 .page-head .callout{ max-width:var(--w-narrow); }
 
 /* ---- header: transparent over the hero, solid once scrolled ------------- */
-.topbar{ position:fixed; inset:0 0 auto 0; z-index:20; display:flex; align-items:center; gap:var(--s5);
-      padding:var(--s3) var(--gutter); background:var(--bg); border-bottom:1px solid var(--line);
+.topbar{ position:fixed; inset:0 0 auto 0; z-index:20; display:flex; flex-wrap:wrap; align-items:center;
+      gap:var(--s2) var(--s5); padding:var(--s3) var(--gutter); background:var(--bg); border-bottom:1px solid var(--line);
       transition:background var(--dur) var(--ease), border-color var(--dur) var(--ease); }
 .topbar.over{ background:transparent; border-bottom-color:transparent; }
 .brand{ font-weight:600; text-transform:uppercase; letter-spacing:.14em; font-size:var(--t-1);
@@ -64,23 +64,16 @@ select{ background:var(--panel); color:var(--ink); border:1px solid var(--line-3
 .bar-nav a.on{ color:var(--ink); border-bottom-color:var(--accent); }
 .bar-end{ margin-left:auto; display:flex; align-items:center; gap:var(--s2); }
 .health{ display:inline-flex; }
-.bar-end .menu-btn{ display:none; }
-@media (max-width:900px){
-  .bar-nav, .bar-end .health, .bar-end .channel, .bar-end .theme-btn{ display:none; }
-  .bar-end .menu-btn{ display:inline-flex; }
+/* Too narrow for one row: the tabs take a row of their own under the brand, and scroll sideways on a phone. */
+@media (max-width:1160px){
+  html{ scroll-padding-top:120px; }
+  .bar-nav{ order:3; flex:1 0 100%; gap:var(--s4); overflow-x:auto; scrollbar-width:none; }
+  .bar-nav::-webkit-scrollbar{ display:none; }
 }
-
-/* the slide-out menu */
-.drawer{ position:fixed; inset:0; z-index:15; background:var(--bg); padding:var(--s10) var(--gutter) var(--s7);
-         display:flex; flex-direction:column; gap:var(--s7); overflow-y:auto; }
-.drawer[hidden]{ display:none; }
-.drawer.open{ animation:slide-in var(--dur) var(--ease); }
-@keyframes slide-in{ from{ transform:translateX(100%); } }
-.drawer nav{ display:flex; flex-direction:column; gap:var(--s3); }
-.drawer nav a{ font-weight:600; text-transform:uppercase; font-size:clamp(var(--t4), 11vw, var(--t6));
-               letter-spacing:-.04em; line-height:1; color:var(--ink); text-decoration:none; }
-.drawer nav a.on{ color:var(--accent); }
-.drawer-end{ display:flex; flex-wrap:wrap; gap:var(--s2); align-items:center; }
+@media (max-width:560px){
+  .bar-end .health, .bar-end .channel{ display:none; }
+  .bar-nav{ mask-image:linear-gradient(to right, var(--ink) 85%, transparent); }
+}
 
 /* ---- pills: the template's buttons ---------------------------------------- */
 .pill{ display:inline-flex; align-items:center; gap:var(--s1); font-family:var(--sans); font-size:var(--t-2);
@@ -214,9 +207,9 @@ select{ background:var(--panel); color:var(--ink); border:1px solid var(--line-3
 .stage.planned .t-sub{ color:var(--faint); }
 .reader{ padding:var(--s1) var(--s2) var(--s5) calc(3.2rem + var(--s3) + var(--s2)); }
 .reader p{ color:var(--ink-2); }
-.at{ font-family:var(--mono); font-size:var(--t-2); color:var(--accent); text-decoration:none; border:1px solid var(--line-2);
+.at{ font-family:var(--mono); font-size:var(--t-2); color:var(--ink-2); text-decoration:none; border:1px solid var(--line-2);
      border-radius:999px; padding:1px 7px; white-space:nowrap; }
-.at:hover{ border-color:var(--accent); }
+.at:hover{ color:var(--ink); border-color:var(--ink); }
 @media (max-width:560px){
   .track-row, .stage{ grid-template-columns:2.4rem minmax(0,1fr); }
   .t-end{ grid-column:2; justify-content:flex-start; }
@@ -235,7 +228,7 @@ select{ background:var(--panel); color:var(--ink); border:1px solid var(--line-3
 /* ---- the chart ------------------------------------------------------------------ */
 .qpick{ display:flex; flex-wrap:wrap; gap:var(--s2); align-items:center; margin-bottom:var(--s4); }
 .chart-rows{ list-style:none; margin:var(--s4) 0; padding:0; border-top:1px solid var(--line-2); }
-.chart-row{ display:grid; grid-template-columns:4.5rem 4.5rem minmax(0,1fr) auto 6rem; grid-template-areas:"rank move name spark rate";
+.chart-row{ display:grid; grid-template-columns:4.5rem 4.5rem minmax(15rem,2fr) minmax(0,3fr) 6rem; grid-template-areas:"rank move name spark rate";
             align-items:center; gap:var(--s4); padding:var(--s3) var(--s2); border-bottom:1px solid var(--line); }
 .chart-row:hover{ background:var(--band); }
 .chart-rows.compact .chart-row{ grid-template-columns:3.5rem 4.5rem minmax(0,1fr) 6rem; grid-template-areas:"rank move name rate"; }
@@ -243,21 +236,44 @@ select{ background:var(--panel); color:var(--ink); border:1px solid var(--line-3
 .c-move{ grid-area:move; }
 .c-name{ grid-area:name; font-weight:600; font-size:var(--t1); color:var(--ink); display:flex; flex-direction:column; min-width:0; }
 .c-sub{ font-weight:400; font-size:var(--t-1); color:var(--muted); }
-.c-spark{ grid-area:spark; display:flex; }
+/* names stay ink: the brand crimson beside a red line would read as bearish */
+.c-name a{ color:var(--ink); text-decoration:none; }
+.c-name a:hover{ text-decoration:underline; }
+.c-spark{ grid-area:spark; display:block; min-width:0; }
 .c-rate{ grid-area:rate; font-weight:600; font-size:var(--t3); color:var(--ink); text-align:right; line-height:1; font-variant-numeric:tabular-nums; }
 .c-rate small{ display:block; font-size:var(--t-2); font-weight:600; color:var(--muted); margin-top:var(--s1); text-transform:uppercase; letter-spacing:.08em; }
 .move{ font-family:var(--mono); font-size:var(--t-1); color:var(--ink-2); white-space:nowrap; }
-.move.up{ color:var(--accent); }
-.spark{ overflow:visible; }
-.spark polyline{ fill:none; stroke:var(--accent); stroke-width:2; stroke-linejoin:round; stroke-linecap:round; }
-.spark circle{ fill:var(--accent); stroke:var(--bg); stroke-width:2; }
-.spark .base{ stroke:var(--line-2); stroke-width:1; }
+/* the sparkline stretches to its column: one x scale down the page, so strokes must not scale */
+.spark{ position:relative; display:block; height:60px; }
+.spark svg{ position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+.spark polyline, .spark-swatch line{ fill:none; stroke-width:2; stroke-linejoin:round; stroke-linecap:round; vector-effect:non-scaling-stroke; }
+.spark .all, .spark-swatch .all{ stroke:var(--ink-2); stroke-dasharray:0 5; }
+.spark .up, .spark-swatch .up{ stroke:var(--green); }
+.spark .down, .spark-swatch .down{ stroke:var(--red); }
+.spark .base{ stroke:var(--line-2); stroke-width:1; vector-effect:non-scaling-stroke; }
+.spark .year{ stroke:var(--line); stroke-width:1; vector-effect:non-scaling-stroke; }
+.spark-dot{ position:absolute; width:10px; height:10px; margin:-5px 0 0 -5px; border-radius:50%; background:var(--ink);
+            box-shadow:0 0 0 2px var(--bg); pointer-events:none; }
+.spark-hit{ position:absolute; top:-4px; bottom:-4px; }
+.spark-hit:hover{ background:var(--line); }
+.spark-axis{ position:relative; display:block; height:1.4em; font-family:var(--mono); font-size:var(--t-2); color:var(--muted); }
+.spark-axis span{ position:absolute; top:0; padding-left:var(--s1); border-left:1px solid var(--line-2); line-height:1.4; }
+.spark-key{ display:flex; flex-wrap:wrap; gap:var(--s1) var(--s4); margin-top:var(--s1); font-size:var(--t-2); color:var(--ink-2); }
+.spark-key > span{ display:inline-flex; align-items:center; gap:var(--s1); white-space:nowrap; }
+.spark-swatch{ width:20px; height:8px; overflow:visible; }
+.chart-axis{ border-bottom:0; padding-top:0; padding-bottom:var(--s1); align-items:end; }
+.chart-kinds{ margin:0 0 var(--s5); }
+.chart-count{ margin:var(--s2) 0 var(--s5); }
+.chart-row.quiet .c-rank, .chart-row.quiet .c-rate{ color:var(--faint); }
+.chart-axis:hover{ background:none; }
 .dropped{ margin-top:var(--s4); color:var(--ink-2); }
 .dropped .label{ display:inline; margin-right:var(--s2); }
 @media (max-width:720px){
   .chart-row, .chart-rows.compact .chart-row{ grid-template-columns:3rem minmax(0,1fr) auto;
     grid-template-areas:"rank name rate" "move name rate"; row-gap:var(--s1); }
-  .c-spark{ display:none; }
+  .chart-rows:not(.compact) .chart-row{ grid-template-areas:"rank name rate" "move name rate" "spark spark spark"; }
+  .chart-axis{ grid-template-areas:"spark spark spark"; }
+  .chart-axis .c-name{ display:none; }
 }
 
 /* ---- bars (HTML marks, one series) ---------------------------------------------- */
@@ -301,6 +317,64 @@ select{ background:var(--panel); color:var(--ink); border:1px solid var(--line-3
 .meter{ display:block; height:10px; border-radius:999px; background:var(--band); border:1px solid var(--line-2); overflow:hidden; }
 .meter > span{ display:block; height:100%; background:var(--accent); border-radius:999px; }
 @media (max-width:560px){ .meters li{ grid-template-columns:minmax(0,1fr) auto; } .meter{ grid-column:1 / -1; grid-row:2; } }
+
+/* ---- the miner (s02): mentions, assets, the strip, spot-checks ----------------------- */
+.tablewrap td.n, .tablewrap th.n{ text-align:right; }
+.tablewrap tr.total td{ border-top:1px solid var(--line-3); font-weight:600; }
+/* One rule for stance everywhere: bullish green, bearish red, neutral grey, always with ↑ ↓ · beside it.
+   Green and red mean nothing else in the viewer; a rank moving up or down is not a stance, so it stays grey. */
+.stance{ font-weight:600; white-space:nowrap; }
+.stance.bullish, .bull{ color:var(--green); }
+.stance.bearish, .bear{ color:var(--red); }
+.stance.neutral{ color:var(--ink-2); }
+.chip-btn[aria-pressed="true"] .stance{ color:inherit; }
+/* a pass (✓ met, ✓ built, ● live) is good, so it is green too, not the brand colour */
+.badge.ok{ color:var(--green); border-color:var(--green); background:var(--green-soft); }
+.stance-w{ font-weight:400; font-size:var(--t-1); color:var(--muted); }
+.m-head{ display:flex; flex-wrap:wrap; align-items:baseline; gap:var(--s2) var(--s3); }
+.play-b{ font-size:var(--t-1); text-transform:uppercase; letter-spacing:.08em; }
+.play-b b{ color:var(--ink); }
+.play-b .dir{ color:var(--muted); }
+.quote{ margin:var(--s2) 0; padding:0 0 0 var(--s3); border-left:2px solid var(--line-3); font-family:var(--serif);
+        font-style:italic; color:var(--ink); max-width:var(--measure); overflow-wrap:anywhere; }
+.m-assets{ display:flex; flex-wrap:wrap; gap:var(--s2); margin:var(--s2) 0; }
+.asset-chip{ display:inline-flex; align-items:baseline; gap:var(--s1); font-size:var(--t-1); color:var(--ink);
+             border:1px solid var(--line-2); border-radius:999px; padding:2px 10px; text-decoration:none; max-width:100%;
+             overflow-wrap:anywhere; }
+a.asset-chip:hover{ border-color:var(--accent); }
+.asset-chip .role{ color:var(--muted); }
+.asset-chip .proxy{ font-family:var(--mono); font-size:var(--t-2); color:var(--muted); }
+.asset-chip.unknown{ border-style:dashed; color:var(--ink-2); }
+.m-meta{ margin:0; font-size:var(--t-1); color:var(--muted); }
+.asset-table td:first-child{ min-width:14ch; }
+/* house.css lets any td break anywhere; a layer name breaks between words only ("Commodities" stays whole) */
+.asset-table td.layer{ overflow-wrap:normal; }
+.strip-legend{ display:flex; flex-wrap:wrap; align-items:center; gap:var(--s2) var(--s4); font-size:var(--t-1); color:var(--muted); }
+.strip-legend > span{ display:inline-flex; align-items:center; gap:var(--s1); white-space:nowrap; }
+.asset-page .page-head .display{ font-size:clamp(var(--t5), 6.5vw, 6.5rem); line-height:.92; overflow-wrap:normal; }
+.strip-row{ display:grid; grid-template-columns:3.5rem minmax(0,1fr); gap:var(--s3); align-items:center; margin:var(--s2) 0; }
+.strip-y{ font-family:var(--mono); font-size:var(--t-1); color:var(--muted); }
+.strip{ display:flex; flex-wrap:wrap; gap:2px; }
+.sc{ display:inline-grid; place-items:center; width:16px; height:22px; border-radius:3px; font-size:var(--t-1); font-weight:600;
+     line-height:1; text-decoration:none; background:var(--band); color:var(--ink-2); }
+.sc.up{ background:var(--green); color:var(--bg); }
+.sc.down{ background:var(--red); color:var(--bg); }
+.sc.mixed{ background:linear-gradient(135deg, var(--green) 50%, var(--red) 50%); color:var(--bg); }
+.sc.quiet{ color:var(--faint); }
+.sc.unmined{ background:transparent; border:1px dashed var(--line-2); }
+a.sc:hover{ outline:2px solid var(--focus); outline-offset:1px; }
+.drops{ list-style:none; padding:0; margin:0; display:grid; gap:var(--s3); font-size:var(--t-1); color:var(--ink-2); }
+.drops li{ overflow-wrap:anywhere; }
+.checks{ list-style:none; padding:0; margin:0; display:grid; gap:var(--s5); }
+.check.done{ border-color:var(--accent-soft); }
+.check-head{ display:flex; flex-wrap:wrap; align-items:center; gap:var(--s2) var(--s3); font-size:var(--t-1); color:var(--muted); }
+.context{ margin:var(--s3) 0; max-width:var(--measure); overflow-wrap:anywhere; }
+.context mark{ background:var(--band); color:var(--ink); box-shadow:inset 0 -2px 0 var(--accent); padding:0 2px; }
+.check-act{ display:flex; flex-wrap:wrap; gap:var(--s2); margin-top:var(--s3); }
+.fix-form{ display:flex; flex-wrap:wrap; gap:var(--s3); align-items:end; margin-top:var(--s3); }
+.fix-form label{ display:flex; flex-direction:column; gap:var(--s1); font-size:var(--t-1); color:var(--muted); }
+.fix-form label.wide{ flex:1 1 16rem; }
+.fix-form input[type=text]{ min-width:12rem; }
 
 /* ---- footer: the template's oversized wordmark ------------------------------------- */
 .foot{ border-top:1px solid var(--line-2); padding:var(--s8) var(--gutter) var(--s6); overflow:hidden; }

@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rotation tracker text mining</title>
+<link rel="stylesheet" href="house.css">
+<link rel="stylesheet" href="project.css">
+<style>
+  /* layout helpers only: every colour is a house token */
+  .fig svg{ width:100%; display:block; color:var(--ink-2); }
+  .fig svg text{ font-family:var(--sans); fill:currentColor; }
+  .fig svg .mono{ font-family:var(--mono); }
+  .fig svg .muted{ fill:var(--muted); }
+  .fig svg .quote{ font-family:var(--serif); font-size:15px; fill:var(--ink); }
+  .fig svg .brace{ stroke:var(--line-3); stroke-width:1.5; fill:none; }
+  .fig svg .brace.hi{ stroke:var(--accent); }
+  .fig svg .lbl{ font-size:12px; font-weight:600; fill:var(--ink); }
+  .fig svg .lbl.hi{ fill:var(--accent); }
+  th{ white-space:nowrap; }
+  .fig svg .sub{ font-size:11px; fill:var(--muted); }
+  .fig svg .node rect{ fill:var(--panel); stroke:var(--line-2); stroke-width:1.5; }
+  .fig svg .node.llm rect{ stroke:var(--accent); stroke-width:2; }
+  .fig svg .node.store rect{ fill:var(--accent-soft); stroke:var(--accent); }
+  .fig svg .node.next rect{ fill:none; stroke:var(--line-3); stroke-dasharray:5 4; }
+  .fig svg .node .t{ font-weight:600; fill:var(--ink); font-size:13px; }
+  .fig svg .node .d{ font-size:11px; fill:var(--muted); }
+  .fig svg .edge{ stroke:var(--line-3); stroke-width:1.5; fill:none; }
+  .fig svg .edge.next{ stroke-dasharray:5 4; }
+  .fig svg .arrowhead{ fill:var(--line-3); }
+  .fig svg .field rect{ fill:var(--band); stroke:var(--line-2); }
+  .fig svg .field text{ font-size:11px; font-family:var(--mono); fill:var(--ink-2); }
+  .hero-flags{ display:grid; gap:var(--s3); }
+  .hero-flags .callout{ margin:0; }
+  .callout h3{ margin-bottom:var(--s1); }
+  td code, li code, p code{ overflow-wrap:anywhere; }
+  .meter{ height:10px; background:var(--band); border:1px solid var(--line-2); border-radius:999px; overflow:hidden; min-width:90px; }
+  .meter > i{ display:block; height:100%; background:var(--accent); border-radius:999px; }
+  .meter.dim > i{ background:var(--line-3); }
+  .copyrow{ margin-top:var(--s4); display:flex; gap:var(--s3); align-items:center; flex-wrap:wrap; }
+  .copyrow textarea{ flex-basis:100%; }
+  form.q{ margin:0 0 var(--s4); }
+  form.q label{ display:block; padding:var(--s1) 0; }
+  form.q textarea{ min-height:64px; width:100%; }
+  form.q .row{ display:flex; gap:var(--s3); align-items:center; flex-wrap:wrap; margin-top:var(--s2); }
+  .stack{ display:grid; gap:var(--s4); }
+  .cols2{ columns:2 260px; column-gap:var(--s5); }
+  .cols2 li{ break-inside:avoid; }
+  table td.n{ white-space:nowrap; text-align:right; font-variant-numeric:tabular-nums; }
+  table td.bar{ min-width:120px; }
+  .mock{ border:1px solid var(--line-2); border-radius:var(--r); background:var(--panel); padding:var(--s4); overflow-x:auto; }
+  .mock .hdr{ display:flex; justify-content:space-between; gap:var(--s3); align-items:baseline; flex-wrap:wrap; margin-bottom:var(--s3); }
+  .mock .strip{ display:grid; grid-template-columns:repeat(26, minmax(14px, 1fr)); gap:3px; }
+  .mock .strip > span{ height:22px; border-radius:var(--r-sm); background:var(--band); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:var(--t-2); font-family:var(--mono); color:var(--muted); }
+  .mock .strip > span.in{ background:var(--accent-soft); border-color:var(--accent); color:var(--accent-ink); }
+  .mock .strip > span.out{ background:var(--band); border-color:var(--ink-2); color:var(--ink); }
+  .mock .legend{ display:flex; gap:var(--s4); margin-top:var(--s2); font-size:var(--t-1); color:var(--muted); flex-wrap:wrap; }
+  .mock .legend i{ display:inline-block; width:14px; height:14px; vertical-align:-2px; margin-right:6px; border-radius:var(--r-sm); border:1px solid var(--line); background:var(--band); }
+  .mock .legend i.in{ background:var(--accent-soft); border-color:var(--accent); }
+  .mock .legend i.out{ border-color:var(--ink-2); }
+  .mock .rows{ margin-top:var(--s3); }
+  .mock .rows > div{ display:grid; grid-template-columns:7ch 9ch minmax(0,1fr); gap:var(--s3); padding:var(--s1) 0; border-top:1px solid var(--line); font-size:var(--t-1); align-items:baseline; min-width:0; }
+  .mock .rows > div > span:last-child{ min-width:0; overflow-wrap:anywhere; }
+  .kw{ font-family:var(--mono); font-size:var(--t-2); color:var(--ink-2); min-width:30ch; overflow-wrap:normal; }
+  #plays td:nth-child(3){ min-width:12ch; }
+  #plays td:nth-child(3) code, #fields td:nth-child(2) code{ overflow-wrap:normal; }
+  #layers td:nth-child(3){ min-width:22ch; }
+  .defs dt{ font-weight:600; margin-top:var(--s3); }
+  .defs dd{ margin:var(--s1) 0 0; color:var(--ink-2); }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <span class="eyebrow">rotation-tracker · plan s01 · 28 Oct 2026 · branch <code>text-mining-spike</code></span>
+  <h1>Read 199 weeks of wraps for every call on an asset: <em>the play, the direction, the thing</em></h1>
+  <p class="lede">Turn each weekly FX Evolution wrap into rows: <i>on this date, at this timestamp, he said money was rotating <b>out of</b> semiconductors</i>; <i>he said utilities were <b>oversold</b></i>; <i>he said bitcoin would <b>outperform</b> ethereum</i>. Each row names the kind of commentary (the play), its direction, the asset it is about, mapped to a stock, a sector, an industry theme or an asset class with a price series to judge it by later. This branch builds the taxonomy, the asset map, the extractor, and the test that says how good the extractor is. Measuring whether the calls were right is the branch after this one; this page leaves it a clean table to join prices to.</p>
+  <div class="verdict">
+    <div class="stat"><div class="n">1.48M</div><div class="l">tokens of macro-and-flows commentary across 199 weeks (5.1M characters; measured with <code>count_tokens</code>, 3.47 chars per token)</div></div>
+    <div class="stat accent"><div class="n">113</div><div class="l">weeks mention rotation, in 312 windows; 145 of those name both a direction and an asset in the same breath</div></div>
+    <div class="stat"><div class="n">7</div><div class="l">kinds of play found in the corpus, of which rotation is one. Technical and valuation calls are each at least as frequent</div></div>
+    <div class="stat accent"><div class="n">≈ $17</div><div class="l">to run the whole corpus through Claude Opus 5.5 at effort high via the Batch API (≈ $34 interactive). A new week is about 17 cents</div></div>
+    <div class="stat"><div class="n">67</div><div class="l">S&amp;P 500 names matched by a crude name search, 21 of them in ten or more weeks. Plus ETFs, crypto, metals, rates and FX</div></div>
+  </div>
+</header>
+
+<section id="flags">
+  <span class="eyebrow">Flagged up front</span>
+  <h2>Four things the corpus says about the design</h2>
+  <p class="sub">Each one comes from a read-only pass over <code>rt.transcript_chapters</code> today (macro-flows and untagged sections only, the same 199 weeks the viewer shows), not from assumption.</p>
+  <div class="hero-flags">
+    <div class="callout" id="flag-plays">
+      <h3>Rotation is a third of the story. The taxonomy has to be wider or most of the commentary is lost <span class="badge rec">decided 28 Oct: extract every commentary on price</span></h3>
+      <p>By weeks mentioned: pullback or correction 150, market top or bottom 147, breakout 141, <b>rotation 113</b>, overvalued or expensive 106, hedging 89, undervalued or cheap 82, flows 78. If the extractor only looks for rotation it skips the valuation calls ("oil is still actually quite cheap versus gold") and the technical calls ("utility stocks are oversold, consumer staples are oversold") that are the other things you asked to measure. So the plan defines seven plays, with rotation first, and every mention carries the same fields so they can be measured the same way.</p>
+    </div>
+    <div class="callout warn" id="flag-stance">
+      <h3>He almost never says "I'm buying". Measure the claim, not a trade</h3>
+      <p>"I'm buying" or "I bought" appears in 3 weeks; "I'm selling" in none. What he says is "I would" (175 weeks), "I like" (90), "stay away" (7), "watch list" (5), or he reports what Wall Street is doing: options flow (160 weeks), sentiment (127), dark pool prints (94), retail (91), hedge funds (25). So a mention records <b>whose view it is</b> (his, or reported positioning), <b>whether it is observed, expected or recommended</b>, and <b>how hedged</b> ("a little bit of rotation out of semis"). The performance branch can then score each class separately instead of pretending every sentence was a trade.</p>
+    </div>
+    <div class="callout" id="flag-industries">
+      <h3>His "industries" are trader sectors, not GICS. The asset map needs two layers</h3>
+      <p>He talks in semis, software, Mag 7, small caps, regional banks, homebuilders, defensives, metals: themes that cut across the 11 GICS sectors. He also names the ETFs he watches (SPY in 38 weeks, IBIT 25, GDX 22, XLF 18, XLE 15, XLV 14, TLT 14, IWM 13, GLD 10, SMH 7, KRE 7, ITB 7, IGV 5). So the map has a <b>theme layer</b> with an ETF proxy each (semis → SMH, software → IGV, small caps → IWM, regional banks → KRE) and a <b>GICS layer</b> for single names (the S&amp;P 500 list carries sector and sub-industry per name). A stock mention resolves to both: Nvidia is <i>Information Technology / Semiconductors</i> and also in the "semis" theme.</p>
+    </div>
+    <div class="callout red" id="flag-public">
+      <h3>The repo is public and the extractor is an LLM. Two guards from day one</h3>
+      <p>Everything the extractor writes contains transcript text (the quote), and the gold-label set is transcript text with answers attached. Both live in Postgres (<code>rt.mentions</code>, <code>rt.labels</code>) and <code>.rt/</code>, never in git; the repo holds the taxonomy, the universe (built from public lists), the prompt, and tests on made-up sentences. Second: a quote the model returns must be found verbatim in the section text or the mention is dropped and counted, so a hallucinated sentence can never become a row. Every mention keeps its <code>extractor_version</code>, prompt hash and model, and a full re-run costs about $17, so the taxonomy can change without fear.</p>
+    </div>
+  </div>
+</section>
+
+<section id="corpus">
+  <span class="eyebrow">The corpus, measured</span>
+  <h2>What he talks about, by weeks out of 199</h2>
+  <p class="sub">Whole-word regex over the macro-flows and untagged sections (5.1M characters). A week counts once however often the pattern hits. These are the seed keywords; the LLM extractor is what turns a hit into a mention with a direction and an asset.</p>
+  <div class="stack">
+    <div class="tablewrap">
+      <table id="plays-measured">
+        <thead><tr><th>Play language</th><th>Weeks</th><th class="bar"></th><th>Seed pattern</th></tr></thead>
+        <tbody>
+          <tr><td class="k">pullback · correction</td><td class="n">150</td><td class="bar"><div class="meter dim"><i style="width:75%"></i></div></td><td class="kw">pull ?back|correction|drawdown</td></tr>
+          <tr><td class="k">market top · bottom</td><td class="n">147</td><td class="bar"><div class="meter dim"><i style="width:74%"></i></div></td><td class="kw">(market|the|a) (top|bottom)|topping|bottoming</td></tr>
+          <tr><td class="k">breakout</td><td class="n">141</td><td class="bar"><div class="meter dim"><i style="width:71%"></i></div></td><td class="kw">break(ing)? ?out|broke out</td></tr>
+          <tr><td class="k rec">rotation</td><td class="n rec">113</td><td class="bar"><div class="meter"><i style="width:57%"></i></div></td><td class="kw">rotat(e|es|ed|ing|ion|ions)</td></tr>
+          <tr><td class="k">overvalued · expensive · bubble</td><td class="n">106</td><td class="bar"><div class="meter"><i style="width:53%"></i></div></td><td class="kw">over ?valued?|expensive|frothy|bubble</td></tr>
+          <tr><td class="k">hedging</td><td class="n">89</td><td class="bar"><div class="meter dim"><i style="width:45%"></i></div></td><td class="kw">hedg(e|es|ed|ing)</td></tr>
+          <tr><td class="k">breakdown</td><td class="n">84</td><td class="bar"><div class="meter dim"><i style="width:42%"></i></div></td><td class="kw">break(ing)? ?down|broke down</td></tr>
+          <tr><td class="k">undervalued · cheap</td><td class="n">82</td><td class="bar"><div class="meter"><i style="width:41%"></i></div></td><td class="kw">under ?valued?|cheap|bargain</td></tr>
+          <tr><td class="k">flows in · out</td><td class="n">78</td><td class="bar"><div class="meter"><i style="width:39%"></i></div></td><td class="kw">flow(s|ing)? (into|out of)|money (flowing|moving) (into|out of)|inflows?|outflows?</td></tr>
+          <tr><td class="k">bull · bear case</td><td class="n">78</td><td class="bar"><div class="meter dim"><i style="width:39%"></i></div></td><td class="kw">(bull|bear)(ish)? (case|market|thesis)</td></tr>
+          <tr><td class="k">accumulate · DCA</td><td class="n">73</td><td class="bar"><div class="meter dim"><i style="width:37%"></i></div></td><td class="kw">accumulat(e|ing|ion)|dollar cost|DCA</td></tr>
+          <tr><td class="k">buy the dip</td><td class="n">69</td><td class="bar"><div class="meter dim"><i style="width:35%"></i></div></td><td class="kw">buy(ing)? the dip|dip buy</td></tr>
+          <tr><td class="k">risk on · off</td><td class="n">47</td><td class="bar"><div class="meter dim"><i style="width:24%"></i></div></td><td class="kw">risk[- ]?(on|off)</td></tr>
+          <tr><td class="k">oversold</td><td class="n">45</td><td class="bar"><div class="meter dim"><i style="width:23%"></i></div></td><td class="kw">over-?sold</td></tr>
+          <tr><td class="k">overbought</td><td class="n">41</td><td class="bar"><div class="meter dim"><i style="width:21%"></i></div></td><td class="kw">over-?bought</td></tr>
+          <tr><td class="k">capitulation</td><td class="n">31</td><td class="bar"><div class="meter dim"><i style="width:16%"></i></div></td><td class="kw">capitulat</td></tr>
+          <tr><td class="k">melt-up</td><td class="n">10</td><td class="bar"><div class="meter dim"><i style="width:5%"></i></div></td><td class="kw">melt[- ]?up</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="tablewrap">
+      <table id="assets-measured">
+        <thead><tr><th>Asset language</th><th>Weeks</th><th class="bar"></th><th>Layer</th></tr></thead>
+        <tbody>
+          <tr><td class="k">gold</td><td class="n">195</td><td class="bar"><div class="meter"><i style="width:98%"></i></div></td><td>commodity</td></tr>
+          <tr><td class="k">bonds · yields · treasuries</td><td class="n">191</td><td class="bar"><div class="meter"><i style="width:96%"></i></div></td><td>rates</td></tr>
+          <tr><td class="k">tech · Nasdaq · QQQ</td><td class="n">187</td><td class="bar"><div class="meter"><i style="width:94%"></i></div></td><td>index · sector</td></tr>
+          <tr><td class="k">S&amp;P 500 · SPY</td><td class="n">187</td><td class="bar"><div class="meter"><i style="width:94%"></i></div></td><td>index</td></tr>
+          <tr><td class="k">banks · financials</td><td class="n">184</td><td class="bar"><div class="meter"><i style="width:92%"></i></div></td><td>sector</td></tr>
+          <tr><td class="k">energy · oil</td><td class="n">183</td><td class="bar"><div class="meter"><i style="width:92%"></i></div></td><td>sector · commodity</td></tr>
+          <tr><td class="k">the dollar · FX</td><td class="n">182</td><td class="bar"><div class="meter"><i style="width:91%"></i></div></td><td>FX</td></tr>
+          <tr><td class="k">bitcoin</td><td class="n">178</td><td class="bar"><div class="meter"><i style="width:89%"></i></div></td><td>crypto</td></tr>
+          <tr><td class="k">Tesla</td><td class="n">171</td><td class="bar"><div class="meter"><i style="width:86%"></i></div></td><td>stock</td></tr>
+          <tr><td class="k">semis · chips · SMH</td><td class="n">167</td><td class="bar"><div class="meter"><i style="width:84%"></i></div></td><td>theme</td></tr>
+          <tr><td class="k">the Fed · rates</td><td class="n">167</td><td class="bar"><div class="meter"><i style="width:84%"></i></div></td><td>macro</td></tr>
+          <tr><td class="k">Nvidia</td><td class="n">163</td><td class="bar"><div class="meter"><i style="width:82%"></i></div></td><td>stock</td></tr>
+          <tr><td class="k">small caps · Russell · IWM</td><td class="n">134</td><td class="bar"><div class="meter"><i style="width:67%"></i></div></td><td>theme</td></tr>
+          <tr><td class="k">silver</td><td class="n">119</td><td class="bar"><div class="meter"><i style="width:60%"></i></div></td><td>commodity</td></tr>
+          <tr><td class="k">AI</td><td class="n">117</td><td class="bar"><div class="meter"><i style="width:59%"></i></div></td><td>theme</td></tr>
+          <tr><td class="k">copper</td><td class="n">109</td><td class="bar"><div class="meter"><i style="width:55%"></i></div></td><td>commodity</td></tr>
+          <tr><td class="k">crypto · altcoins</td><td class="n">108</td><td class="bar"><div class="meter"><i style="width:54%"></i></div></td><td>crypto</td></tr>
+          <tr><td class="k">healthcare</td><td class="n">94</td><td class="bar"><div class="meter"><i style="width:47%"></i></div></td><td>sector</td></tr>
+          <tr><td class="k">utilities</td><td class="n">89</td><td class="bar"><div class="meter"><i style="width:45%"></i></div></td><td>sector</td></tr>
+          <tr><td class="k">ethereum</td><td class="n">83</td><td class="bar"><div class="meter"><i style="width:42%"></i></div></td><td>crypto</td></tr>
+          <tr><td class="k">Apple</td><td class="n">82</td><td class="bar"><div class="meter"><i style="width:41%"></i></div></td><td>stock</td></tr>
+          <tr><td class="k">real estate · REITs · homebuilders</td><td class="n">71</td><td class="bar"><div class="meter"><i style="width:36%"></i></div></td><td>sector · theme</td></tr>
+          <tr><td class="k">credit · high yield</td><td class="n">67</td><td class="bar"><div class="meter"><i style="width:34%"></i></div></td><td>rates</td></tr>
+          <tr><td class="k">Mag 7 · mega caps</td><td class="n">66</td><td class="bar"><div class="meter"><i style="width:33%"></i></div></td><td>theme</td></tr>
+          <tr><td class="k">software · SaaS · IGV</td><td class="n">37</td><td class="bar"><div class="meter"><i style="width:19%"></i></div></td><td>theme (29 of the 37 weeks are 2026)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p class="small">Also measured: 144 of 199 weeks have a chapter titled with "rotation" or "sector" and 143 have one on flows, dark pools, options or positioning, so the chapter layer already points at where the mentions live. Rotation direction words in the 312 windows: "to" 335, "into" 74, "out of" 25, "from" 23, "back into" 4. Per week the commentary runs 11k to 41k characters (median 26k, 7.6k tokens; the largest 11.5k tokens), in a median of 13 sections. Single names outside the S&amp;P 500 he returns to: Robinhood (63 weeks, now in the index), Coinbase (58), MicroStrategy (26), SMCI (16), TSMC (12).</p>
+</section>
+
+<section id="mention">
+  <span class="eyebrow">The unit of work</span>
+  <h2>What one mention is</h2>
+  <p class="sub">One sentence from 25 July 2025, taken apart the way the extractor will. Every mention gets the same fields whatever the play, so rotation, valuation and technical calls land in one table and are measured by one query later.</p>
+  <figure class="fig" id="fig-mention">
+    <div class="fig-title">Anatomy of a mention · "we have started to see a little bit of rotation out of semis"</div>
+    <svg viewBox="0 0 760 250" role="img" aria-labelledby="m-t m-d"><title id="m-t">One sentence decomposed into play, direction, asset and modifiers</title><desc id="m-d">The quote sits across the top. Braces beneath it label "a little bit" as hedged, "rotation" as the play, "out of" as the direction, and "semis" as the asset, which resolves to the semiconductors theme with proxy SMH. A row of field boxes below shows the resulting record.</desc>
+      <text class="quote" x="20" y="34">“… we have started to see</text>
+      <text class="mono" x="240" y="34" font-size="14">a little bit</text>
+      <text class="quote" x="350" y="34">of</text>
+      <text class="mono" x="372" y="34" font-size="14">rotation</text>
+      <text class="mono" x="448" y="34" font-size="14">out of</text>
+      <text class="mono" x="506" y="34" font-size="14">semis</text>
+      <text class="quote" x="556" y="34">…”</text>
+      <g id="b-hedge"><title>hedged: "a little bit" lowers confidence, it does not change the play</title>
+        <path class="brace" d="M240,44 v8 h100 v-8"/>
+        <text class="lbl" x="290" y="70" text-anchor="middle">hedged</text>
+        <text class="sub" x="290" y="84" text-anchor="middle">confidence ↓</text></g>
+      <g id="b-play"><title>play: rotation</title>
+        <path class="brace hi" d="M372,44 v8 h66 v-8"/>
+        <text class="lbl hi" x="405" y="70" text-anchor="middle">play</text>
+        <text class="sub" x="405" y="84" text-anchor="middle">rotation</text></g>
+      <g id="b-dir"><title>direction: out</title>
+        <path class="brace hi" d="M448,44 v8 h50 v-8"/>
+        <text class="lbl hi" x="473" y="70" text-anchor="middle">direction</text>
+        <text class="sub" x="473" y="84" text-anchor="middle">out</text></g>
+      <g id="b-asset"><title>asset: "semis" resolves to the semiconductors theme, proxy SMH</title>
+        <path class="brace hi" d="M506,44 v8 h42 v-8"/>
+        <text class="lbl hi" x="527" y="70" text-anchor="middle">asset</text>
+        <text class="sub" x="506" y="84">→ theme:semis · proxy SMH</text></g>
+      <text class="sub" x="20" y="118">The record, one row in <tspan class="mono">rt.mentions</tspan> plus one in <tspan class="mono">rt.mention_assets</tspan>:</text>
+      <g class="field" id="f-when"><title>week and timestamp come from the pick and the segment that holds the quote</title><rect x="20" y="130" width="150" height="40" rx="6"/><text x="30" y="147">week 2025-07-25</text><text x="30" y="162">t = segment start</text></g>
+      <g class="field" id="f-play"><title>play and direction</title><rect x="180" y="130" width="130" height="40" rx="6"/><text x="190" y="147">play rotation</text><text x="190" y="162">direction out</text></g>
+      <g class="field" id="f-asset"><title>the asset with its role in the sentence</title><rect x="320" y="130" width="170" height="40" rx="6"/><text x="330" y="147">asset theme:semis</text><text x="330" y="162">role from · proxy SMH</text></g>
+      <g class="field" id="f-view"><title>whose view, modality, stance, confidence</title><rect x="500" y="130" width="240" height="40" rx="6"/><text x="510" y="147">speaker him · modality observed</text><text x="510" y="162">stance bearish · confidence 0.6</text></g>
+      <g class="field" id="f-prov"><title>provenance: the verbatim quote located in the section, and the extractor that wrote it</title><rect x="20" y="180" width="720" height="56" rx="6"/><text x="30" y="196">quote "we have started to see a little bit of rotation out of semis"</text><text x="30" y="211">section §9 · chars 4120–4181 · must be found in the section text, or dropped and counted</text><text x="30" y="226">extractor play/v1 · prompt sha · model claude-opus-5-5 · run mine-2026…</text></g>
+    </svg>
+  </figure>
+  <div class="tablewrap">
+    <table id="fields">
+      <thead><tr><th>Field</th><th>Values</th><th>Why it is there</th></tr></thead>
+      <tbody>
+        <tr><td class="k"><code>play</code></td><td><code>rotation · flow · valuation · technical · regime · relative · call · other</code></td><td>The kind of commentary. Fixed list, versioned as <code>play/v1</code>; the table below defines each</td></tr>
+        <tr><td class="k"><code>direction</code></td><td>per play: <code>in/out</code>, <code>buying/selling</code>, <code>under/over</code>, <code>bullish/bearish</code>, <code>on/off</code>, <code>a_over_b</code>, <code>long/short/avoid</code></td><td>What you asked for first: which way, so the performance branch knows which sign to test</td></tr>
+        <tr><td class="k"><code>assets[]</code></td><td>one or more of <code>rt.assets</code>, each with a role: <code>subject · from · to · versus</code></td><td>"Rotation out of tech into energy" is one mention with two assets. "Silver versus gold" is one mention with a pair</td></tr>
+        <tr><td class="k"><code>speaker</code></td><td><code>him · reported</code> (Wall Street, dark pools, hedge funds, retail, a survey)</td><td>Half the flow commentary is him relaying positioning. Scored separately later</td></tr>
+        <tr><td class="k"><code>modality</code></td><td><code>observed · expected · recommended</code></td><td>"We're seeing rotation" vs "we could be getting rotation" vs "get into the sectors". Only the last is a call</td></tr>
+        <tr id="f-stance"><td class="k"><code>stance</code></td><td><code>bullish · bearish · neutral</code> toward the subject asset</td><td>The sign the performance branch tests. Derived from play+direction for most plays, stated for <code>call</code>. For rotation, <code>in</code> ⇒ bullish and <code>out</code> ⇒ bearish on that asset, so a rotation call is tested against price movement exactly as a bullish or bearish call is: in should precede the proxy outperforming, out underperforming <span class="badge info">to check in the measurement branch · owner's note, 28 Oct</span></td></tr>
+        <tr><td class="k"><code>horizon</code></td><td><code>days · weeks · months · years · unspecified</code></td><td>"The next couple of years" and "this week" are not the same test</td></tr>
+        <tr><td class="k"><code>confidence</code></td><td>0–1, lowered by hedges ("a little bit", "maybe", "could")</td><td>Lets the later measurement split confident calls from musings</td></tr>
+        <tr><td class="k"><code>quote · section · span · t_seconds</code></td><td>verbatim ≤ 300 chars, section idx, char offsets, segment start</td><td>Provenance. The timestamp links the viewer straight to the moment on YouTube</td></tr>
+        <tr><td class="k"><code>extractor_version · prompt_sha · model · run_id</code></td><td>e.g. <code>play/v1</code>, sha of the prompt file, <code>claude-opus-5-5</code>, the MLflow run</td><td>Re-runs write a new version beside the old one; nothing is overwritten</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="taxonomy">
+  <span class="eyebrow">play/v1</span>
+  <h2>Seven plays, with the keywords that seed each</h2>
+  <p class="sub">The LLM reads whole weeks and decides the play from context; the keywords are the baseline (<code>play/v0</code>) and the sanity check on its recall. Real quotes from the corpus in the last column, dated.</p>
+  <div class="tablewrap">
+    <table id="plays">
+      <thead><tr><th>Play</th><th>Definition</th><th>Direction</th><th>Seed keywords</th><th>Weeks</th><th>Heard in the corpus</th></tr></thead>
+      <tbody>
+        <tr id="p-rotation"><td class="k rec"><span class="badge rec">1</span> rotation</td><td>Money moving between assets, sectors or themes. Carries a <i>from</i> and/or a <i>to</i> asset</td><td><code>out / in</code> per asset</td><td class="kw">rotat*, "into", "out of", "money moving", "broadening", "leadership"</td><td class="n">113</td><td>"the market clearly rotates out of some growth stocks and starts to get a little bit more defensive" · 23 Jan 2026</td></tr>
+        <tr id="p-flow"><td class="k"><span class="badge">2</span> flow</td><td>Reported positioning: options flow, dark pool prints, hedge funds, "the biggest players", retail, insiders, buybacks, ETF flows, surveys</td><td><code>buying / selling</code></td><td class="kw">dark pool, options flow, call/put buying, gamma, hedge funds, biggest players, retail, insiders, buybacks, inflows, outflows, COT, fund manager survey</td><td class="n">160</td><td>"someone in Wall Street is purchasing these now, are they doing it just due to normal rotation or are they bunkering down" · 21 Jul 2023</td></tr>
+        <tr id="p-valuation"><td class="k"><span class="badge">3</span> valuation</td><td>A fundamental price judgement: cheap, expensive, bubble, forward P/E</td><td><code>under / over</code></td><td class="kw">undervalued, overvalued, cheap, expensive, frothy, bubble, bargain, P/E, "fair value"</td><td class="n">142</td><td>"oil, even with the recent move, is actually quite cheap versus gold" · 13 Mar 2026</td></tr>
+        <tr id="p-technical"><td class="k"><span class="badge">4</span> technical</td><td>A chart or breadth judgement: overbought/oversold, breakout/breakdown, pullback, top/bottom, capitulation, melt-up, levels</td><td><code>bullish / bearish</code> setup</td><td class="kw">overbought, oversold, breakout, breakdown, pullback, correction, top, bottom, capitulation, melt-up, support, resistance, breadth</td><td class="n">181</td><td>"utility stocks are oversold, consumer staples stocks are oversold" · 2 Jun 2023</td></tr>
+        <tr id="p-regime"><td class="k"><span class="badge">5</span> regime</td><td>Market-wide or macro state: risk-on/off, bull/bear market, the Fed, liquidity, recession, seasonality. Subject is usually the index or an asset class</td><td><code>on / off</code>, <code>bull / bear</code></td><td class="kw">risk on, risk off, bull market, bear market, recession, liquidity, rate cut, rate hike, "worst months", seasonality, VIX</td><td class="n">167</td><td>"let's discuss the bear market exit … a rotation into a whole bunch of other sectors with the Russell 2000 starting to break out" · 2 Jun 2023</td></tr>
+        <tr id="p-relative"><td class="k"><span class="badge">6</span> relative</td><td>One asset against another, as a ratio or a race</td><td><code>a_over_b</code></td><td class="kw">"versus", "vs", "outperform", "underperform", "ratio", "relative to", "compared to"</td><td class="n">—</td><td>"you see movement from Bitcoin into ethereum and then it rotates and it outperforms" · 12 Jan 2024 · "silver versus gold, silver still …" · 12 Apr 2024</td></tr>
+        <tr id="p-call"><td class="k"><span class="badge">7</span> call</td><td>His own explicit view or instruction on an asset</td><td><code>long / short / avoid / watch</code></td><td class="kw">"I like", "I would", "big fan of", "stay away", "don't touch", "watch list", "trade idea", "get into"</td><td class="n">175</td><td>"I'm a big fan of utilities right now" · 31 May 2024 · "make sure to get into the sectors because the sectors are where it's at the next couple of years" · 12 Apr 2024</td></tr>
+        <tr id="p-other"><td class="k"><span class="badge info">8</span> other</td><td>An asset-directed claim that fits none of the above. Reviewed; a cluster here becomes a play in <code>play/v2</code></td><td>—</td><td>—</td><td class="n">—</td><td>The release valve so the model never forces a fit</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small">Weeks are the union of the seed keywords' week counts from the table above (valuation = over 106 ∪ under 82; technical = the six technical rows). <code>relative</code> was not probed by regex because "versus" alone is too noisy; its count comes from the first extractor pass. Not every sentence with a keyword is a mention: "rotation" said about the channel ("sector rotation, what we're all about here") is not a call on an asset, and the extractor is told so.</p>
+</section>
+
+<section id="universe">
+  <span class="eyebrow">assets/v1</span>
+  <h2>The asset map: what a mention can be about, and the series that will judge it</h2>
+  <p class="sub">A mention resolves to one row of <code>rt.assets</code>. Every row has a kind, a layer, aliases (how he says it, including the auto-caption's mishearings), and a <b>proxy</b>: the ticker whose price history will score the mention in the next branch. A theme without a clean proxy is still a row; its proxy is marked <code>none</code> rather than invented.</p>
+  <div class="stack">
+    <div>
+      <dl class="defs">
+        <dt>US equities, the definition</dt>
+        <dd><b>S&amp;P 500</b>: the 503 constituents of S&amp;P Dow Jones Indices' large-cap index (500 companies, three with two share classes), taken from the public constituent list on the build date, with GICS sector and sub-industry per name. Today's list has all 11 sectors and 126 of the 163 GICS sub-industries. The same page's changes table gives membership dates back to 2023, so a name is tagged with the dates it was in the index (<code>valid_from</code>/<code>valid_to</code>); without that, 2023 mentions of names that joined later would be scored as index members they were not.</dd>
+        <dd><b>Nasdaq-100</b>: the 100 largest non-financial Nasdaq-listed companies, from Nasdaq's own list at build time (about 20 of them are not in the S&amp;P 500, mostly foreign listings). Union of the two lists ≈ 525 single names.</dd>
+        <dd><b>Everything else he names</b> (Robinhood before it joined the index, MicroStrategy, SMCI, TSMC, Palantir early on) is added by hand to <code>assets/extras.yaml</code> as it turns up in the unknown-asset queue, with the same fields. <b>Russell 2000</b> is a theme with proxy IWM only; its 2,000 constituents are not loaded.</dd>
+        <dt>GICS, the industry definition</dt>
+        <dd>The Global Industry Classification Standard (S&amp;P and MSCI, 2023 revision): 11 sectors → 25 industry groups → 74 industries → 163 sub-industries. Single names carry sector and sub-industry; "industry" in your question maps to sub-industry (<i>Semiconductors</i>, <i>Application Software</i>, <i>Regional Banks</i>, <i>Homebuilding</i>) when he means a GICS group, and to a theme row when he means a trader basket.</dd>
+        <dt>Themes, the trader definition</dt>
+        <dd>The 18 keyword themes the viewer's chart already uses (<code>themes/v0</code>) become rows here with proxies and aliases, extended with the ones the corpus adds: regional banks (KRE), homebuilders (ITB), biotech (XBI), miners (GDX), defensives (a basket: XLP, XLU, XLV), AI (no single proxy; <code>none</code>, measured through its members).</dd>
+      </dl>
+    </div>
+    <div class="tablewrap">
+      <table id="layers">
+        <thead><tr><th>Layer</th><th>Rows</th><th>Proxy for scoring</th><th>Aliases he uses</th></tr></thead>
+        <tbody>
+          <tr><td class="k">index</td><td class="n">5</td><td><code>SPY QQQ DIA IWM</code> · VIX via <code>^VIX</code></td><td>"the S&amp;P", "the Qs", "the cues" (mishearing), "the Dow", "the Russell", "the market"</td></tr>
+          <tr><td class="k">sector (GICS)</td><td class="n">11</td><td><code>XLK XLF XLE XLV XLU XLY XLP XLI XLB XLRE XLC</code></td><td>"tech", "financials", "banks", "energy", "healthcare", "utilities", "discretionary", "staples", "industrials", "materials", "real estate", "communications"</td></tr>
+          <tr><td class="k">theme</td><td class="n">≈ 25</td><td><code>SMH IGV IWM KRE ITB XBI GDX</code> · Mag 7 via an equal-weight basket · AI <code>none</code></td><td>"semis", "chips", "chip makers", "software", "SaaS", "small caps", "regional banks", "home construction", "the builders", "mega caps", "Mag 7", "defensives", "metals", "miners"</td></tr>
+          <tr><td class="k">stock</td><td class="n">≈ 525 + extras</td><td>the ticker</td><td>company name, ticker, nickname ("Nvidia", "NVDA", "Jensen"); the ambiguous ones (Target, Apple, Block, Visa, Ball, Intel) need a stock cue in context</td></tr>
+          <tr><td class="k">crypto</td><td class="n">≈ 8</td><td><code>BTC-USD ETH-USD SOL-USD XRP-USD</code> · spot ETFs <code>IBIT</code> as aliases</td><td>"bitcoin", "BTC", "ethereum", "ETH", "solana", "alts", "altcoins", "crypto"</td></tr>
+          <tr><td class="k">rates · credit</td><td class="n">≈ 8</td><td><code>^TNX ^IRX TLT HYG LQD</code></td><td>"yields", "the 10-year", "the 2-year", "bonds", "treasuries", "junk", "credit spreads", "the Fed" (macro, proxied by <code>^IRX</code>)</td></tr>
+          <tr><td class="k">commodity</td><td class="n">≈ 8</td><td><code>GLD SLV USO COPX URA UNG</code> or the futures (<code>GC=F CL=F HG=F</code>)</td><td>"gold", "silver", "oil", "crude", "copper", "uranium", "nat gas"</td></tr>
+          <tr><td class="k">FX</td><td class="n">≈ 5</td><td><code>DX-Y.NYB EURUSD=X USDJPY=X AUDUSD=X</code></td><td>"the dollar", "DXY", "the yen", "the Aussie"</td></tr>
+          <tr><td class="k">macro-only</td><td class="n">≈ 6</td><td><code>none</code> (scored through SPY where a direction is given)</td><td>"inflation", "recession", "liquidity", "the consumer", "China"</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p class="small">Resolution is code, not the model: the extractor returns the asset <i>as spoken</i> plus its best ticker guess; <code>mining/resolve.py</code> maps that through <code>rt.aliases</code> to an id, and anything unmatched lands in a review queue (<code>rt status</code> reports the unknown rate). The crude name search above shows why a plain lookup won't do: "Nasdaq" matched Nasdaq Inc. in 164 weeks and "Target" the retailer in 78, when both are almost always the index and the word. Auto-captions add their own aliases: "Brett's" is breadth, "Marcus" is markets, "bookcase" is bull case, "the cues" is the Qs. These go in the alias table as they are found, with a test each.</p>
+</section>
+
+<section id="pipeline">
+  <span class="eyebrow">How it runs</span>
+  <h2>From sections to mentions, and what checks it</h2>
+  <figure class="fig" id="fig-pipeline">
+    <div class="fig-title">The mining path (solid) and the branch after this one (dashed)</div>
+    <svg viewBox="0 0 760 330" role="img" aria-labelledby="p-t p-d"><title id="p-t">Pipeline from transcript sections through the extractor to mentions, with the gold set and evaluation beside it, and prices and measurement as a later branch</title><desc id="p-d">Postgres sections feed rt mine, which calls Claude Opus 5.5 with structured output one week at a time, locates each quote, resolves assets through the alias table, and writes rt.mentions. A gold set feeds rt mine eval, which logs precision and recall to MLflow. The viewer reads mentions. A dashed path shows prices and measurement in the next branch.</desc>
+      <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="arrowhead" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+      <g class="node store" id="n-sections"><title>rt.transcript_chapters, macro-flows and untagged sections, 199 weeks</title><rect x="10" y="60" width="130" height="56" rx="8"/><text class="t" x="75" y="83" text-anchor="middle">Postgres</text><text class="d" x="75" y="100" text-anchor="middle">rt.transcript_chapters</text></g>
+      <g class="node llm" id="n-mine"><title>rt mine: one call per week, Claude Opus 5.5, structured output, prompt cached, Batch API for the backfill</title><rect x="170" y="50" width="210" height="76" rx="8"/><text class="t" x="275" y="75" text-anchor="middle">rt mine</text><text class="d" x="275" y="92" text-anchor="middle">Claude Opus 5.5 · 1 call per week</text><text class="d" x="275" y="108" text-anchor="middle">structured output · cached prompt</text></g>
+      <g class="node" id="n-locate"><title>locate: every quote must be found verbatim in its section; char span to segment to t_seconds</title><rect x="390" y="50" width="140" height="76" rx="8"/><text class="t" x="460" y="75" text-anchor="middle">locate</text><text class="d" x="460" y="92" text-anchor="middle">quote → span</text><text class="d" x="460" y="108" text-anchor="middle">span → t_seconds</text></g>
+      <g class="node" id="n-resolve"><title>resolve: spoken asset and ticker guess through rt.aliases to an rt.assets id; unknowns queued</title><rect x="560" y="50" width="130" height="76" rx="8"/><text class="t" x="625" y="75" text-anchor="middle">resolve</text><text class="d" x="625" y="92" text-anchor="middle">rt.aliases → asset</text><text class="d" x="625" y="108" text-anchor="middle">unknowns → queue</text></g>
+      <g class="node store" id="n-mentions"><title>rt.mentions and rt.mention_assets, versioned by extractor and prompt</title><rect x="560" y="170" width="130" height="56" rx="8"/><text class="t" x="625" y="193" text-anchor="middle">rt.mentions</text><text class="d" x="625" y="210" text-anchor="middle">+ mention_assets</text></g>
+      <g class="node" id="n-viewer"><title>viewer pages /mentions and /assets/:id, read-only as before</title><rect x="390" y="170" width="140" height="56" rx="8"/><text class="t" x="460" y="193" text-anchor="middle">viewer</text><text class="d" x="460" y="210" text-anchor="middle">/mentions · /assets/:id</text></g>
+      <g class="node store" id="n-gold"><title>rt.labels: 12 gold weeks, labelled in Postgres, never in git</title><rect x="10" y="170" width="130" height="56" rx="8"/><text class="t" x="75" y="193" text-anchor="middle">gold set</text><text class="d" x="75" y="210" text-anchor="middle">rt.labels · 12 weeks</text></g>
+      <g class="node" id="n-eval"><title>rt mine eval: precision and recall per play, asset accuracy, direction accuracy, versus the regex baseline; logged to MLflow</title><rect x="170" y="170" width="210" height="56" rx="8"/><text class="t" x="275" y="193" text-anchor="middle">rt mine eval</text><text class="d" x="275" y="210" text-anchor="middle">P/R per play → MLflow</text></g>
+      <g class="node next" id="n-prices"><title>next branch: rt.prices for every proxy, from the yfinance loader</title><rect x="10" y="260" width="130" height="50" rx="8"/><text class="t" x="75" y="281" text-anchor="middle">⑥ prices</text><text class="d" x="75" y="297" text-anchor="middle">next branch</text></g>
+      <g class="node next" id="n-measure"><title>next branch: forward returns of each mention's proxy against SPY from the Monday open after the pick</title><rect x="170" y="260" width="210" height="50" rx="8"/><text class="t" x="275" y="281" text-anchor="middle">measure the calls</text><text class="d" x="275" y="297" text-anchor="middle">forward returns vs SPY</text></g>
+      <path class="edge" d="M140,88 H168" marker-end="url(#ah)"><title>sections in</title></path>
+      <path class="edge" d="M380,88 H388" marker-end="url(#ah)"><title>JSON mentions out</title></path>
+      <path class="edge" d="M530,88 H558" marker-end="url(#ah)"><title>located mentions</title></path>
+      <path class="edge" d="M625,126 V168" marker-end="url(#ah)"><title>write, versioned</title></path>
+      <path class="edge" d="M558,198 H532" marker-end="url(#ah)"><title>read-only</title></path>
+      <path class="edge" d="M140,198 H168" marker-end="url(#ah)"><title>labels</title></path>
+      <path class="edge" d="M380,198 H395 V130" marker-end="url(#ah)"><title>the eval also scores the extractor's output</title></path>
+      <path class="edge next" d="M140,285 H168" marker-end="url(#ah)"><title>prices join mentions by proxy</title></path>
+      <path class="edge next" d="M380,285 H625 V228" marker-end="url(#ah)"><title>measurement reads mentions</title></path>
+      <text class="sub" x="10" y="150">new week: rt sync → rt mine --since</text>
+    </svg>
+  </figure>
+  <div class="tablewrap">
+    <table id="design">
+      <thead><tr><th>Choice</th><th>Proposal</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Unit of extraction</td><td><span class="badge rec">one call per week</span> the macro-flows and untagged sections concatenated with markers <code>[§9 · 14:03]</code></td><td>Median 7.6k, max 11.5k tokens: it all fits, and he refers back ("as we talked about over the last month, it all comes back to rotation"). Section markers let the model cite a section and the code locate the quote</td></tr>
+        <tr><td class="k">Model</td><td><span class="badge rec">Claude Opus 5.5</span> <code>claude-opus-5-5</code>, adaptive thinking, effort <code>high</code> <span class="badge rec">owner's call, 28 Oct</span>, structured output against the mention schema (<code>output_config.format</code>), server-side fallbacks on</td><td>The default for the API; the nuance here (hedges, reported vs own view, ASR errors) is the hard part. The gold set reports whether <code>high</code> beats <code>medium</code> by enough to keep paying for it</td></tr>
+        <tr><td class="k">Cost</td><td>≈ 1.48M input tokens + a 6k-token cached prompt + ≈ 7k output tokens per week at effort <code>high</code> (mentions plus thinking). <b>Opus 5.5 ≈ $34, or ≈ $17 through the Batch API</b> for the whole corpus; Sonnet 5.5 half that; a new week ≈ 17¢. <code>--max-usd</code> caps every run; <code>count_tokens</code> runs first, and the first three dev weeks replace the 7k guess with a measured number</td><td>Cheap enough to re-run the corpus every time the taxonomy changes. The backfill goes through Batch; the weekly run is interactive</td></tr>
+        <tr><td class="k">Provenance gate</td><td>A mention is kept only if its quote is found in the section text (exact, else a fuzzy match over 0.9). Dropped quotes are counted per run</td><td>Stops hallucinated sentences and gives the timestamp for free: span → segment → <code>start_seconds</code> from <code>rt.transcripts.segments</code></td></tr>
+        <tr><td class="k">Baseline</td><td><code>play/v0</code>: the seed regexes as an extractor, same table, same fields where a regex can fill them</td><td>Zero-cost, runs in CI, and shows what the LLM adds. If v1 cannot beat it on the gold set, v1 is not ready</td></tr>
+        <tr><td class="k">Versioning</td><td><code>extractor_version</code> + <code>prompt_sha</code> + <code>model</code> on every row; a run never deletes another's rows; the viewer and the eval read the newest version per week</td><td>Taxonomy v2 is a new run beside v1, and the two can be compared on the same weeks</td></tr>
+        <tr><td class="k">Tracking</td><td>One MLflow run per <code>rt mine</code> batch in experiment <code>rotation-tracker/mining</code> (a registry addition in nmp-central-ai, id from <code>.mlflow-ids.env</code>): weeks, mentions, dropped quotes, unknown assets, tokens, dollars. <code>rt mine eval</code> logs the metrics</td><td>The platform contract. No prompt text, no transcript text in params or tags</td></tr>
+        <tr><td class="k">New week</td><td>The weekly line becomes <code>rt catalog --refresh && rt refine && rt pick && rt ingest --max-credits 1 && rt sync && rt mine --since</code></td><td>Mining reads Postgres only, so it works whether or not transcript·lab's Chroma index is repaired; only the ingest step depends on that</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="test">
+  <span class="eyebrow">Measuring the miner</span>
+  <h2>How we will know the extractor is right before anything is measured against prices</h2>
+  <div class="split">
+    <div>
+      <h3>The gold set</h3>
+      <p>12 weeks, three per year, chosen at random from the 199 and fixed. Each gets a careful pass at high effort to propose mentions, then <b>you spot-check 50 of them in the viewer</b> (a thumbs up/down and a corrected field where needed) and every rotation mention in those weeks is read twice. Expected size: about 400 mentions. Labels live in <code>rt.labels</code> and <code>.rt/gold/</code>; the repo never sees them.</p>
+      <h3>The metrics, per play and overall</h3>
+      <ul>
+        <li><b>Span precision and recall</b>: a predicted mention matches a gold one if their quotes overlap and the play agrees.</li>
+        <li><b>Direction accuracy</b> and <b>asset accuracy</b> on matched mentions; <b>unknown-asset rate</b> on all.</li>
+        <li><b>Agreement between two runs</b> of the same version on the same weeks (the model is not deterministic; the number says how much).</li>
+        <li><b>v1 against v0</b>: the regex baseline on the same gold set, so the LLM's contribution is a number, not a feeling.</li>
+      </ul>
+      <h3>Acceptance to run the backfill</h3>
+      <p>Rotation precision ≥ 0.85 and recall ≥ 0.80; asset accuracy ≥ 0.90 on resolved mentions; unknown-asset rate &lt; 10%; dropped-quote rate &lt; 3%. Anything under that is a prompt or alias fix and another eval, at a few cents a week.</p>
+    </div>
+    <div>
+      <h3>Tests in the repo (public, synthetic)</h3>
+      <ul>
+        <li>The resolver: made-up sentences for every alias and every ambiguous name ("Target hit its price target" resolves to nothing; "Target, the retailer, is oversold" resolves to TGT).</li>
+        <li>The locator: a synthetic section with known segments; a quote maps to the right span and timestamp; a quote that is not there is dropped and counted.</li>
+        <li>The schema: the extractor's JSON output is validated field by field; an unknown play or direction fails loudly.</li>
+        <li>The seed universe build: a fixture copy of ten constituent rows produces the expected <code>rt.assets</code> rows with sector, sub-industry and validity dates.</li>
+        <li>No live LLM call in CI. The one recorded fixture is a synthetic week and a synthetic response.</li>
+      </ul>
+      <div class="mock" id="mock-asset" aria-label="Mock of the /assets/:id page">
+        <div class="hdr"><div><span class="eyebrow">viewer · /assets/theme:semis</span><br><b>Semiconductors</b> <span class="muted small">theme · proxy SMH · aliases semis, chips, chip makers</span></div><div class="small muted">mentions by week, 2025 H1 → 2025 H2</div></div>
+        <div class="strip" aria-hidden="true">
+          <span>·</span><span class="in">↑</span><span class="in">↑</span><span>·</span><span class="out">↓</span><span class="out">↓</span><span>·</span><span>·</span><span class="in">↑</span><span>·</span><span>·</span><span class="in">↑</span><span class="in">↑</span><span>·</span><span>·</span><span class="out">↓</span><span>·</span><span>·</span><span>·</span><span class="in">↑</span><span>·</span><span>·</span><span class="out">↓</span><span>·</span><span>·</span><span class="in">↑</span>
+        </div>
+        <div class="legend"><span><i class="in"></i>↑ rotation in · bullish</span><span><i class="out"></i>↓ rotation out · bearish</span><span><i></i>· no mention that week</span></div>
+        <div class="rows">
+          <div><span class="mono muted">25 Jul</span><span><span class="badge warn">out</span></span><span>"we have started to see a little bit of rotation out of semis" <span class="muted">· rotation · observed · 0.6 · ▶ 14:03</span></span></div>
+          <div><span class="mono muted">7 Mar</span><span><span class="badge ok">in</span></span><span>"semiconductors came back after getting smashed in the morning session" <span class="muted">· rotation · observed · 0.5 · ▶ 09:41</span></span></div>
+        </div>
+        <p class="small muted" style="margin:var(--s3) 0 0">Illustrative rows in the house UI; the timestamps are placeholders until the locator writes real ones.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="build">
+  <span class="eyebrow">Build order on <code>text-mining-spike</code></span>
+  <h2>Nine steps, each with a done-when</h2>
+  <div class="steps">
+    <div class="step" id="b1"><b>assets/v1: schema and seed</b><code>sql/002_mining.sql</code>: <code>rt.assets</code>, <code>rt.aliases</code>, <code>rt.mentions</code>, <code>rt.mention_assets</code>, <code>rt.labels</code>, <code>rt.mine_runs</code>. <code>rt assets seed</code> builds the universe from the two public constituent lists (fetched at build time, snapshot date recorded, membership dates from the changes table) plus <code>assets/themes.yaml</code> and <code>assets/extras.yaml</code> in the repo. Add experiment <code>rotation-tracker/mining</code> to the registry in nmp-central-ai and run <code>make mlflow-init</code>.<span class="tag">done when every theme row has a proxy or an explicit <code>none</code>, the 18 chart themes are present, and the resolver maps the 50 regex asset patterns above to ids</span></div>
+    <div class="step" id="b2"><b>play/v0: the regex baseline</b>Port today's probe into <code>mining/baseline.py</code>; <code>rt mine --engine regex</code> writes mentions with what a regex can fill (play, direction where a direction word is adjacent, asset where an alias is adjacent).<span class="tag">done when it reproduces the week counts on this page and writes rows tagged <code>play/v0</code></span></div>
+    <div class="step" id="b3"><b>play/v1: prompt, schema, three dev weeks</b><code>mining/prompt.md</code> (the taxonomy, the field definitions, the theme aliases, eight worked examples from the corpus, a note that the text is auto-captioned speech) and a pydantic schema for structured output. Run three weeks interactively and read every mention.<span class="tag">done when the JSON validates, at least 97% of quotes locate, and the three weeks' obvious mentions are all present</span></div>
+    <div class="step" id="b4"><b>The gold set</b>Pick the 12 weeks, run the careful pass, build the spot-check page in the viewer (a write path for <code>rt.labels</code> only, as <code>rotation_owner</code>, behind a <code>--label</code> flag on <code>rt serve</code>), you check 50, rotation mentions get a second read.<span class="tag">done when ≈ 400 labels exist and the two reads of rotation agree on at least 90%</span></div>
+    <div class="step" id="b5"><b><code>rt mine eval</code></b>Precision, recall, direction and asset accuracy per play, unknown and dropped rates, run-to-run agreement, v1 against v0. Logged to MLflow, printed as a table.<span class="tag">done when the acceptance gate above passes, or the page is updated with the real numbers and why</span></div>
+    <div class="step" id="b6"><b>Backfill</b><code>rt mine --all --batch --max-usd 25</code> through the Batch API, one MLflow run, newest first.<span class="tag">done when all 199 weeks have v1 rows, the unknown-asset queue has been read and the aliases it needed are in, and the run cost is on the page</span></div>
+    <div class="step" id="b7"><b>New-week path</b><code>rt mine --since</code> after <code>rt sync</code>; <code>rt status</code> shows mining coverage and the unknown rate.<span class="tag">done when the next weekly pick flows end to end for 1 credit and about 17 cents</span></div>
+    <div class="step" id="b8"><b>Viewer pages</b><code>/mentions</code> (filter by play, direction, asset, year, speaker, modality; every row plays the video at its timestamp) and <code>/assets/:id</code> (the strip above, plus the mention list). The chart stays on <code>themes/v0</code> until mentions prove better.<span class="tag">done when both pages render from Postgres only, <code>lint:design</code> passes, and tests use synthetic fixtures</span></div>
+    <div class="step" id="b9"><b>Docs and PR</b><code>ai_specs/s02_text_mining.md</code> as the plan of record (numbered after <code>s01_viewer.md</code>; this page stays <code>s01</code> in <code>.lavish/</code>), AGENTS.md and README commands, <code>/no-mistakes</code>, PR to <code>main</code>.<span class="tag">done when a fresh clone with <code>.env</code> reproduces the eval numbers</span></div>
+  </div>
+  <p class="small">The branch after this one: ⑥ prices (the yfinance loader from value-invest-agent, every proxy above from 2022-01-01), then measurement: for each mention, the proxy's return against SPY over 1, 4, 13, 26 and 52 weeks from the Monday open after the pick, sign-tested by play, direction, speaker, modality and confidence. First check on that list: that rotation <code>in</code> and <code>out</code> line up with the proxy's price movement the way bullish and bearish calls do, since the stance is the same sign. The point-in-time rules in <code>AGENTS.md</code> apply: a weekend video is tradable at Monday's open, never Friday's close.</p>
+</section>
+
+<section id="risks">
+  <span class="eyebrow">Risks and failure modes</span>
+  <h2>What can go wrong, and the guard for each</h2>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Risk</th><th>Evidence</th><th>Guard</th></tr></thead>
+      <tbody>
+        <tr id="r1"><td><span class="badge warn">likely</span> Auto-captions garble names and terms</td><td>In today's samples: "Brett's" (breadth), "Marcus" (markets), "bookcase" (bull case), "the cues" (the Qs), "sicker stocks". The channel has auto-captions only</td><td>The prompt says it is ASR text; mishearings go in <code>rt.aliases</code> with a test each; the unknown queue surfaces new ones</td></tr>
+        <tr id="r2"><td><span class="badge warn">likely</span> A word is a company name</td><td>"Nasdaq" matched Nasdaq Inc. in 164 weeks, "Target" 78, "Block", "Ball", "Apple", "Visa", "Intel", "Oracle"</td><td>Resolution needs a stock cue (ticker, "stock", "shares", earnings) or the model's explicit ticker; ambiguous names carry a flag in <code>rt.assets</code> and a test</td></tr>
+        <tr id="r3"><td><span class="badge bad">must not</span> A hallucinated quote becomes a row</td><td>Any LLM extractor</td><td>The locate gate: no verbatim match, no row. The dropped count is logged per run and is an acceptance metric</td></tr>
+        <tr id="r4"><td><span class="badge bad">must not</span> Transcript text reaches the public repo</td><td>Mentions and labels are quotes</td><td>Postgres and <code>.rt/</code> only; the prompt's worked examples are the only quotes in git and are eight short ones, which is fair use of a public video; tests are synthetic</td></tr>
+        <tr id="r5"><td><span class="badge info">known</span> "Rotation" is also what the channel is about</td><td>"sector rotation, what we're all about here on the channel"; "let's talk rotation before we jump into the charts"</td><td>The prompt separates a mention (a claim about an asset) from a topic cue; the gold set has examples of both</td></tr>
+        <tr id="r6"><td><span class="badge info">possible</span> The model is not deterministic</td><td>Two runs of the same week differ at the margins</td><td>Run-to-run agreement is measured and reported; a mention present in one run of two gets lower confidence in the viewer</td></tr>
+        <tr id="r7"><td><span class="badge info">possible</span> Index membership drifts over the three years</td><td>Robinhood, Coinbase, Palantir joined the S&amp;P 500 during the window</td><td><code>valid_from</code>/<code>valid_to</code> from the changes table; a stock mention is always resolved, membership is a tag</td></tr>
+        <tr id="r8"><td><span class="badge info">possible</span> Cost surprise</td><td>Thinking tokens are output tokens</td><td><code>count_tokens</code> before each run, <code>--max-usd</code>, Batch for the backfill, usage logged to MLflow</td></tr>
+        <tr id="r9"><td><span class="badge warn">likely</span> transcript·lab's Chroma chunk index is still 134 writes behind</td><td>Found on 28 Oct; any fresh chromadb client crashes on <code>transcript_chunks</code></td><td>Mining reads Postgres only and is unaffected. The next <code>rt ingest</code> is the step at risk, and that fix belongs to transcript-rag-agent</td></tr>
+        <tr id="r10"><td><span class="badge info">possible</span> The Nasdaq-100 list is not where expected</td><td>Today's fetch of the Wikipedia list page returned a stub</td><td><code>rt assets seed</code> takes a URL or a CSV; the snapshot date and source are stored with the rows</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="decide">
+  <span class="eyebrow">Decisions</span>
+  <h2>One decided, six choices left before the build starts</h2>
+  <p class="sub">The recommended option is first in each. Pick, add a note if you like, and queue each answer; send them all at once with "Send to agent". If you opened this file without Lavish, "Copy all answers" at the bottom gives you text to paste back.</p>
+  <div class="split">
+    <div>
+      <div class="card" id="decided-scope">
+        <h3>1 · Taxonomy scope for this branch <span class="badge rec">decided 28 Oct</span></h3>
+        <p>"Extract every commentary on price": every claim about an asset's price is a mention, so <code>play/v1</code> ships with all seven plays plus <code>other</code>. Rotation is the first play, not the only one.</p>
+      </div>
+      <form class="q card" data-lavish-question="universe" onsubmit="event.preventDefault(); const f=new FormData(event.currentTarget); const c=f.get('universe'); if(!c) return; window.lavish.queuePrompt('Universe decision: '+c+'. Notes: '+(f.get('note')||'none'), {tag:'choice', text:'Universe: '+c, element:event.currentTarget, data:{question:'universe', answer:c, note:f.get('note')}});">
+        <h3>2 · The stock universe</h3>
+        <label><input type="radio" name="universe" value="S&P 500 union Nasdaq-100 with membership dates, plus themes, crypto, rates, commodities, FX and a hand-kept extras list" checked> S&amp;P 500 ∪ Nasdaq-100 with membership dates, plus every other layer <span class="badge rec">recommended</span></label>
+        <label><input type="radio" name="universe" value="S&P 500 only for single names, plus the other layers"> S&amp;P 500 only for single names</label>
+        <label><input type="radio" name="universe" value="every single name he mentions, resolved to any listed ticker, no index gate"> Every name he mentions, any listed ticker</label>
+        <div class="row"><textarea name="note" placeholder="Other indexes, ETFs or assets to include"></textarea><button type="submit" class="btn">Queue this answer</button></div>
+      </form>
+      <form class="q card" data-lavish-question="model" onsubmit="event.preventDefault(); const f=new FormData(event.currentTarget); const c=f.get('model'); if(!c) return; window.lavish.queuePrompt('Extractor model decision: '+c+'. Notes: '+(f.get('note')||'none'), {tag:'choice', text:'Model: '+c, element:event.currentTarget, data:{question:'model', answer:c, note:f.get('note')}});">
+        <h3>3 · The extractor model <span class="badge info">effort high, decided 28 Oct</span></h3>
+        <label><input type="radio" name="model" value="claude-opus-5-5 at effort high for extraction and eval, Batch API for the backfill (about $17)" checked> Claude Opus 5.5 throughout, Batch for the backfill, ≈ $17 <span class="badge rec">recommended</span></label>
+        <label><input type="radio" name="model" value="claude-sonnet-5-5 at effort high for the backfill, claude-opus-5-5 for the gold pass and eval (about $9)"> Sonnet 5.5 backfill, Opus 5.5 gold and eval, ≈ $9</label>
+        <label><input type="radio" name="model" value="claude-haiku-5-5 everywhere (under $1), accept lower accuracy"> Haiku 5.5 everywhere, under $1</label>
+        <div class="row"><textarea name="note" placeholder="A dollar cap for the branch, or a model preference"></textarea><button type="submit" class="btn">Queue this answer</button></div>
+      </form>
+      <form class="q card" data-lavish-question="unit" onsubmit="event.preventDefault(); const f=new FormData(event.currentTarget); const c=f.get('unit'); if(!c) return; window.lavish.queuePrompt('Extraction unit decision: '+c+'. Notes: '+(f.get('note')||'none'), {tag:'choice', text:'Unit: '+c, element:event.currentTarget, data:{question:'unit', answer:c, note:f.get('note')}});">
+        <h3>4 · Unit of extraction</h3>
+        <label><input type="radio" name="unit" value="one call per week over the macro-flows and untagged sections with section markers" checked> One call per week, section markers <span class="badge rec">recommended</span></label>
+        <label><input type="radio" name="unit" value="one call per section (about 2,600 calls), no cross-section context"> One call per section</label>
+        <label><input type="radio" name="unit" value="one call per week over every section including technicals, intro and promo"> Whole video including technicals</label>
+        <div class="row"><textarea name="note" placeholder="For instance: include the technicals sections too"></textarea><button type="submit" class="btn">Queue this answer</button></div>
+      </form>
+    </div>
+    <div>
+      <form class="q card" data-lavish-question="gold" onsubmit="event.preventDefault(); const f=new FormData(event.currentTarget); const c=f.get('gold'); if(!c) return; window.lavish.queuePrompt('Gold set decision: '+c+'. Notes: '+(f.get('note')||'none'), {tag:'choice', text:'Gold: '+c, element:event.currentTarget, data:{question:'gold', answer:c, note:f.get('note')}});">
+        <h3>5 · The gold set and who labels it</h3>
+        <label><input type="radio" name="gold" value="12 weeks, a careful high-effort pass proposes labels, the owner spot-checks 50 in the viewer, rotation mentions read twice" checked> 12 weeks; careful pass + your 50 spot-checks in the viewer <span class="badge rec">recommended</span></label>
+        <label><input type="radio" name="gold" value="12 weeks labelled fully by the owner from a CSV export, no labelling page"> 12 weeks, you label all from a CSV; no viewer write path</label>
+        <label><input type="radio" name="gold" value="6 weeks only, spot-checks only, accept a wider error bar"> 6 weeks, spot-checks only</label>
+        <div class="row"><textarea name="note" placeholder="How many you are willing to check, or weeks you want included"></textarea><button type="submit" class="btn">Queue this answer</button></div>
+      </form>
+      <form class="q card" data-lavish-question="acceptance" onsubmit="event.preventDefault(); const f=new FormData(event.currentTarget); const c=f.get('acceptance'); if(!c) return; window.lavish.queuePrompt('Acceptance gate decision: '+c+'. Notes: '+(f.get('note')||'none'), {tag:'choice', text:'Gate: '+c, element:event.currentTarget, data:{question:'acceptance', answer:c, note:f.get('note')}});">
+        <h3>6 · The acceptance gate before the backfill</h3>
+        <label><input type="radio" name="acceptance" value="rotation P>=0.85 R>=0.80, asset accuracy >=0.90, unknown <10%, dropped <3%" checked> Rotation P ≥ 0.85, R ≥ 0.80; assets ≥ 0.90; unknown &lt; 10%; dropped &lt; 3% <span class="badge rec">recommended</span></label>
+        <label><input type="radio" name="acceptance" value="looser: rotation P>=0.75 R>=0.70, then iterate after the backfill"> Looser: P ≥ 0.75, R ≥ 0.70, iterate after the backfill</label>
+        <label><input type="radio" name="acceptance" value="no gate, backfill now and measure after"> No gate: backfill now, measure after</label>
+        <div class="row"><textarea name="note" placeholder="Which metric matters most to you"></textarea><button type="submit" class="btn">Queue this answer</button></div>
+      </form>
+      <form class="q card" data-lavish-question="viewer" onsubmit="event.preventDefault(); const f=new FormData(event.currentTarget); const c=f.get('viewer'); if(!c) return; window.lavish.queuePrompt('Viewer scope decision: '+c+'. Notes: '+(f.get('note')||'none'), {tag:'choice', text:'Viewer: '+c, element:event.currentTarget, data:{question:'viewer', answer:c, note:f.get('note')}});">
+        <h3>7 · Viewer work in this branch</h3>
+        <label><input type="radio" name="viewer" value="/mentions and /assets/:id pages plus the spot-check page; chart stays on themes/v0" checked> <code>/mentions</code>, <code>/assets/:id</code> and the spot-check page <span class="badge rec">recommended</span></label>
+        <label><input type="radio" name="viewer" value="spot-check page only; browse mentions by SQL for now"> Spot-check page only; browse by SQL</label>
+        <label><input type="radio" name="viewer" value="also switch /chart to count mentions instead of keyword themes"> All of that, and switch <code>/chart</code> to mentions</label>
+        <div class="row"><textarea name="note" placeholder="Anything you want to see on the asset page"></textarea><button type="submit" class="btn">Queue this answer</button></div>
+      </form>
+      <form class="q card" data-lavish-question="anything-else" onsubmit="event.preventDefault(); const f=new FormData(event.currentTarget); const t=(f.get('note')||'').trim(); if(!t) return; window.lavish.queuePrompt('Owner note on the text-mining plan: '+t, {tag:'note', text:'Note: '+t.slice(0,80), element:event.currentTarget, data:{question:'anything-else', note:t}});">
+        <h3>Anything else</h3>
+        <div class="row"><textarea name="note" placeholder="Plays you had in mind that are missing, assets you care about, a budget, a deadline"></textarea><button type="submit" class="btn">Queue this note</button></div>
+      </form>
+    </div>
+  </div>
+  <div class="copyrow">
+    <button type="button" class="btn" onclick="(async (btn) => {
+      const copyRun = btn._lavishCopyRun = (btn._lavishCopyRun || 0) + 1;
+      const qs = [...document.querySelectorAll('[data-lavish-question]')];
+      const status = btn.parentElement.querySelector('[data-lavish-copy-all-status]');
+      btn.parentElement.querySelector('[data-lavish-copy-all-manual]')?.remove();
+      const out = [];
+      for (const q of qs) {
+        const key = q.getAttribute('data-lavish-question')?.trim() || 'Question';
+        const lines = [];
+        for (const el of q.querySelectorAll('input, select, textarea')) {
+          if (el.matches(':disabled')) continue;
+          if (el.closest('[data-lavish-question]') !== q) continue;
+          const isChoice = el.matches('input[type=checkbox], input[type=radio]');
+          if (isChoice && !el.checked) continue;
+          if (el.matches('input[type=button], input[type=submit], input[type=reset], input[type=image], input[type=hidden], input[type=file], input[type=range], input[type=color]')) continue;
+          let vals;
+          if (el instanceof HTMLSelectElement) {
+            vals = [...el.selectedOptions].filter((o) => !o.disabled && !o.closest('optgroup[disabled]')).map((o) => o.value.trim()).filter(Boolean);
+          } else {
+            const v = isChoice && (!el.hasAttribute('value') || !el.value.trim())
+              ? el.labels?.[0]?.textContent?.trim() || el.getAttribute('aria-label')?.trim() || el.name || ''
+              : el.value.trim();
+            vals = v ? [v] : [];
+          }
+          const label = el.name || el.labels?.[0]?.textContent?.trim() || el.getAttribute('aria-label')?.trim() || el.getAttribute('placeholder')?.trim() || el.tagName.toLowerCase();
+          for (const v of vals) lines.push('  ' + label + ': ' + v.split('\n').join('\n    '));
+        }
+        if (lines.length) out.push(key + ':\n' + lines.join('\n'));
+      }
+      const text = out.join('\n\n');
+      if (!text) { status.textContent = qs.length ? 'No answers to copy yet.' : 'No questions or answers to copy.'; return; }
+      status.textContent = '';
+      try {
+        if (typeof navigator.clipboard?.writeText !== 'function') throw new Error('Clipboard API unavailable');
+        await navigator.clipboard.writeText(text);
+        if (copyRun !== btn._lavishCopyRun) return;
+        status.textContent = 'Answers copied.';
+        return;
+      } catch {}
+      if (copyRun !== btn._lavishCopyRun) return;
+      const tmp = document.createElement('textarea');
+      tmp.value = text; tmp.readOnly = true; tmp.setAttribute('aria-hidden', 'true');
+      tmp.style.position = 'fixed'; tmp.style.left = '-10000px';
+      document.body.append(tmp); tmp.focus(); tmp.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch {}
+      tmp.remove();
+      if (ok) { status.textContent = 'Answers copied.'; return; }
+      const man = document.createElement('textarea');
+      man.value = text; man.readOnly = true; man.rows = Math.min(12, Math.max(3, text.split('\n').length));
+      man.setAttribute('aria-label', 'Answers to copy manually'); man.dataset.lavishCopyAllManual = '';
+      btn.insertAdjacentElement('afterend', man); man.focus(); man.select();
+      status.textContent = 'Clipboard unavailable. Copy the answers below manually.';
+    })(this)">Copy all answers</button>
+    <span data-lavish-copy-all-status role="status" aria-live="polite" class="small muted"></span>
+  </div>
+</section>
+
+<footer style="margin-top:var(--s8)">
+  <p class="small">Sources, all read-only and all today: the 199 weeks' macro-flows and untagged sections in <code>rt.transcript_chapters</code> (regex probes, samples quoted above); two <code>count_tokens</code> calls on Claude Opus 5.5 for the median and largest weeks; the public S&amp;P 500 constituent list (503 rows, 11 sectors, 126 sub-industries); prices from the Claude API model table (Opus 5.5 $4 / $20 per million tokens, Batch at half, cache reads $0.20). Styled with the portfolio house UI (<code>house.css</code> unedited, <code>project.css</code> at the provisional hue 15 shared with finance-rag-sft).</p>
+</footer>
+
+</main>
+</body>
+</html>

@@ -35,6 +35,40 @@ def test_rank_new_entry_and_dropped() -> None:
     assert dropped == ["B"]
 
 
+def test_rank_history_covers_every_quarter_whichever_is_chosen() -> None:
+    mentions = {"A": {Q1: 13, Q2: 26, Q3: 39}}
+    for q in (Q1, Q2, Q3):
+        entries, _ = themes.rank(mentions, {}, WEEKS, q)
+        assert entries[0].history == [1.0, 2.0, 3.0]
+
+
+def test_rank_splits_each_quarter_by_stance_and_leaves_the_rest_unclassified() -> None:
+    mentions = {"A": {Q1: 26, Q2: 26, Q3: 39}}
+    entries, _ = themes.rank(
+        mentions, {}, WEEKS, Q3, bullish={"A": {Q1: 13, Q3: 26}}, bearish={"A": {Q2: 13}}
+    )
+    assert entries[0].history == [2.0, 2.0, 3.0]
+    assert entries[0].bullish == [1.0, 0.0, 2.0]
+    assert entries[0].bearish == [0.0, 1.0, 0.0]
+
+
+def test_rank_without_stances_gives_flat_zero_lines() -> None:
+    entries, _ = themes.rank({"A": {Q3: 13}}, {}, WEEKS, Q3)
+    assert entries[0].bullish == entries[0].bearish == [0.0, 0.0, 0.0]
+
+
+def test_rank_everything_lists_the_unmentioned_last_by_all_time_count() -> None:
+    mentions = {"A": {Q3: 13}, "B": {Q1: 26, Q2: 13}, "C": {Q2: 52}, "D": {Q3: 26}}
+    entries, dropped = themes.rank(mentions, {}, WEEKS, Q3, size=None)
+    assert [(e.theme, e.rank, e.move, e.total) for e in entries] == [
+        ("D", 1, "new", 26),
+        ("A", 2, "new", 13),
+        ("C", None, "none", 52),
+        ("B", None, "none", 39),
+    ]
+    assert dropped == []
+
+
 def test_rank_first_quarter_has_no_previous() -> None:
     entries, dropped = themes.rank({"A": {Q1: 13}}, {"A": {Q1: 9}}, WEEKS, Q1)
     assert (entries[0].move, entries[0].prev_rank, entries[0].weeks_hit) == ("new", None, 9)
@@ -99,11 +133,26 @@ class FakeStore:
     def search(self, q: str, topics: list[str], order: str, limit: int) -> dict[str, Any]:
         return {"q": q, "topics": topics, "order": order, "limit": limit}
 
-    def chart(self, quarter: date | None) -> dict[str, Any]:
-        return {"quarter": quarter}
+    def chart(self, quarter: date | None, view: str = "themes") -> dict[str, Any]:
+        return {"quarter": quarter, "view": view}
 
     def pipeline(self) -> dict[str, Any]:
         return {}
+
+    def mentions(self, **filters: Any) -> dict[str, Any]:
+        return {}
+
+    def assets(self, kind: str | None, q: str | None) -> dict[str, Any]:
+        return {}
+
+    def asset(self, asset_id: str) -> dict[str, Any] | None:
+        return None
+
+    def mining(self) -> dict[str, Any]:
+        return {}
+
+    def spot_checks(self) -> list[dict[str, Any]]:
+        return []
 
 
 def test_api_routes_validate_and_404(tmp_path: Any) -> None:
@@ -115,14 +164,20 @@ def test_api_routes_validate_and_404(tmp_path: Any) -> None:
     assert c.get("/api/weeks/not-an-id").status_code == 422
     s = c.get("/api/search", params={"q": "rotation", "limit": 999}).json()
     assert (s["topics"], s["limit"]) == (["macro-flows", "untagged"], 200)
-    assert c.get("/api/chart", params={"quarter": "2026-07-01"}).json() == {"quarter": "2026-07-01"}
+    assert c.get("/api/chart", params={"quarter": "2026-07-01"}).json() == {
+        "quarter": "2026-07-01",
+        "view": "themes",
+    }
+    assert c.get("/api/chart", params={"view": "assets"}).json()["view"] == "assets"
+    assert c.get("/api/chart", params={"view": "everything"}).status_code == 422
 
 
 def test_built_frontend_is_served_with_a_spa_fallback(tmp_path: Any) -> None:
-    (tmp_path / "assets").mkdir()
+    (tmp_path / "static").mkdir()
     (tmp_path / "index.html").write_text("<div id=root></div>")
-    (tmp_path / "assets" / "app.js").write_text("console.log(1)")
+    (tmp_path / "static" / "app.js").write_text("console.log(1)")
     c = TestClient(create_app(FakeStore(), dist=tmp_path))
     assert c.get("/weeks/AAAAAAAAAAA").text == "<div id=root></div>"
-    assert c.get("/assets/app.js").text == "console.log(1)"
+    assert c.get("/static/app.js").text == "console.log(1)"
+    assert c.get("/assets/stock:BRK.B").text == "<div id=root></div>"  # a page, not a file
     assert c.get("/api/nothing").status_code == 404

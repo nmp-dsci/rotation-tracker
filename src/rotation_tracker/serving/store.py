@@ -17,6 +17,7 @@ import urllib.parse
 import urllib.request
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from dataclasses import asdict
 from datetime import UTC, date, datetime
 from typing import Any
 
@@ -25,7 +26,8 @@ from psycopg.rows import dict_row
 
 from rotation_tracker import db, pipeline, supadata
 from rotation_tracker.config import ROOT, settings
-from rotation_tracker.serving import themes
+from rotation_tracker.mining.run import PRODUCTION
+from rotation_tracker.serving import mining, themes
 from rotation_tracker.serving.chroma import Chroma
 from rotation_tracker.tracking import git_sha
 
@@ -77,6 +79,46 @@ SELECT date_trunc('quarter', p.week_friday)::date, count(*)
 FROM rt.weekly_picks p
 WHERE EXISTS (SELECT 1 FROM rt.transcripts t WHERE t.video_id = p.video_id)
 GROUP BY 1
+"""
+
+# The same keyword hits, counted only inside the quotes of the miner's current calls (s02) and
+# split by the stance on the call's asset in that theme: every asset of the call whose spoken
+# words or name match the theme must lean the same way, or the hits stay unclassified.
+THEME_STANCE_SQL = f"""
+WITH {mining.CURRENT},
+m AS (
+  SELECT m.id, m.stance, date_trunc('quarter', p.week_friday)::date AS quarter,
+         regexp_count(m.quote, %(re)s, 1, 'i') AS hits
+  FROM rt.mentions m {mining.ON_CUR}
+  JOIN rt.weekly_picks p ON p.video_id = m.video_id
+),
+side AS (
+  SELECT m.quarter, m.hits,
+         (SELECT CASE WHEN bool_and(coalesce(a.stance, m.stance) = 'bullish') THEN 'bullish'
+                      WHEN bool_and(coalesce(a.stance, m.stance) = 'bearish') THEN 'bearish' END
+          FROM rt.mention_assets a LEFT JOIN rt.assets s ON s.id = a.asset_id
+          WHERE a.mention_id = m.id
+            AND (coalesce(a.spoken, '') || ' ' || coalesce(s.name, '')) ~* %(re)s) AS stance
+  FROM m WHERE m.hits > 0
+)
+SELECT quarter, sum(hits) FILTER (WHERE stance = 'bullish') AS bullish,
+       sum(hits) FILTER (WHERE stance = 'bearish') AS bearish
+FROM side GROUP BY 1
+"""
+
+# The assets view: the miner's current calls per asset and quarter, split by the stance on that
+# asset (its own, else the call's). A call naming an asset twice counts once.
+ASSET_CALLS_SQL = f"""
+WITH {mining.CURRENT}
+SELECT a.asset_id, date_trunc('quarter', p.week_friday)::date AS quarter,
+       count(DISTINCT m.id) AS calls, count(DISTINCT m.video_id) AS weeks,
+       count(DISTINCT m.id) FILTER (WHERE coalesce(a.stance, m.stance) = 'bullish') AS bullish,
+       count(DISTINCT m.id) FILTER (WHERE coalesce(a.stance, m.stance) = 'bearish') AS bearish
+FROM rt.mentions m {mining.ON_CUR}
+JOIN rt.mention_assets a ON a.mention_id = m.id
+JOIN rt.weekly_picks p ON p.video_id = m.video_id
+WHERE a.asset_id IS NOT NULL
+GROUP BY 1, 2
 """
 
 THEME_SQL = """
@@ -158,6 +200,7 @@ class Mlflow:
     def __init__(self) -> None:
         self._up = _Cached(30, self._health)
         self._exp = _Cached(300, self._experiment)
+        self._mining = _Cached(300, lambda: self._experiment(settings().mining_experiment))
 
     def _call(self, path: str, body: dict[str, Any] | None = None) -> Any:
         base = settings().mlflow_tracking_uri.rstrip("/")
@@ -173,10 +216,21 @@ class Mlflow:
         self._call("/health")
         return True
 
-    def _experiment(self) -> str:
-        q = urllib.parse.quote(settings().experiment)
+    def _experiment(self, name: str | None = None) -> str:
+        q = urllib.parse.quote(name or settings().experiment)
         doc = self._call(f"/api/2.0/mlflow/experiments/get-by-name?experiment_name={q}")
         return str(doc["experiment"]["experiment_id"])
+
+    def mining_urls(self, run_ids: list[str | None]) -> dict[str, Any]:
+        """Links into the mining experiment: the experiment and each run that logged."""
+        exp, _ = self._mining.get() if self.up else (None, None)
+        base = settings().mlflow_tracking_uri.rstrip("/")
+        if not exp:
+            return {"experiment": None, "runs": {}}
+        return {
+            "experiment": f"{base}/#/experiments/{exp}",
+            "runs": {r: f"{base}/#/experiments/{exp}/runs/{r}" for r in run_ids if r},
+        }
 
     @property
     def up(self) -> bool:
@@ -233,6 +287,7 @@ class Store:
         self.mlflow = Mlflow()
         self._credits = _Cached(600, _credits)
         self._themes = _Cached(600, self._theme_counts)  # the corpus changes once a week
+        self._assets = _Cached(600, self._asset_counts)  # ... and the miner with it
         self.chroma = Chroma(settings().transcript_lab_chroma)
         self.code_sha = git_sha()
 
@@ -376,6 +431,8 @@ class Store:
     def _theme_counts(self) -> dict[str, Any]:
         mentions: dict[str, dict[date, int]] = {}
         hit: dict[str, dict[date, int]] = {}
+        bullish: dict[str, dict[date, int]] = {}
+        bearish: dict[str, dict[date, int]] = {}
         with self._con() as con:
             weeks: dict[date, int] = dict(con.execute(QUARTER_WEEKS_SQL).fetchall())
             for name, body in themes.THEMES:
@@ -383,10 +440,42 @@ class Store:
                 rows = con.execute(THEME_SQL, args).fetchall()
                 mentions[name] = {q: int(m or 0) for q, m, _ in rows}
                 hit[name] = {q: int(w or 0) for q, _, w in rows}
-        return {"weeks": weeks, "mentions": mentions, "hit": hit}
+                sides = con.execute(THEME_STANCE_SQL, mining._args(re=args["re"])).fetchall()
+                bullish[name] = {q: int(u or 0) for q, u, _ in sides}
+                bearish[name] = {q: int(d or 0) for q, _, d in sides}
+        return {
+            "weeks": weeks,
+            "mentions": mentions,
+            "hit": hit,
+            "bullish": bullish,
+            "bearish": bearish,
+        }
 
-    def chart(self, quarter: date | None) -> dict[str, Any]:
-        counts, error = self._themes.get()
+    def _asset_counts(self) -> dict[str, Any]:
+        calls: dict[str, dict[date, int]] = {}
+        hit: dict[str, dict[date, int]] = {}
+        bullish: dict[str, dict[date, int]] = {}
+        bearish: dict[str, dict[date, int]] = {}
+        with self._con() as con:
+            weeks: dict[date, int] = dict(con.execute(QUARTER_WEEKS_SQL).fetchall())
+            for aid, q, n, w, up, down in con.execute(ASSET_CALLS_SQL, mining._args()).fetchall():
+                calls.setdefault(aid, {})[q] = n
+                hit.setdefault(aid, {})[q] = w
+                bullish.setdefault(aid, {})[q] = up
+                bearish.setdefault(aid, {})[q] = down
+            names = {
+                i: (name, kind)
+                for i, name, kind in con.execute(
+                    "SELECT id, name, kind FROM rt.assets WHERE id = ANY(%s)", [list(calls)]
+                ).fetchall()
+            }
+        return {
+            "weeks": weeks, "mentions": calls, "hit": hit, "bullish": bullish,
+            "bearish": bearish, "names": names,
+        }  # fmt: skip
+
+    def chart(self, quarter: date | None, view: str = "themes") -> dict[str, Any]:
+        counts, error = (self._assets if view == "assets" else self._themes).get()
         if counts is None:
             raise RuntimeError(error)
         weeks: dict[date, int] = counts["weeks"]
@@ -400,17 +489,31 @@ class Store:
         complete = [q for q in quarters if closed(q)]
         if quarter not in weeks:
             quarter = complete[-1] if complete else quarters[-1]
-        entries, dropped = themes.rank(counts["mentions"], counts["hit"], weeks, quarter)
+        entries, dropped = themes.rank(
+            counts["mentions"], counts["hit"], weeks, quarter, size=None,
+            bullish=counts["bullish"], bearish=counts["bearish"],
+        )  # fmt: skip
+        names: dict[str, tuple[str, str]] = counts.get("names", {})
         prev = [q for q in quarters if q < quarter]
         return {
-            "version": themes.THEMES_VERSION,
+            "view": view,
+            "version": themes.THEMES_VERSION if view == "themes" else PRODUCTION,
             "quarter": quarter,
             "previous": prev[-1] if prev else None,
             "quarters": [{"quarter": q, "weeks": weeks[q], "closed": closed(q)} for q in quarters],
-            "history_quarters": [q for q in quarters if q <= quarter][-8:],
+            "history_quarters": quarters,
             "weeks_in_quarter": weeks[quarter],
-            "entries": entries,
-            "dropped": dropped,
+            # On the assets view an entry is ranked by id; it carries the asset's name and kind.
+            "entries": [
+                {
+                    **asdict(e),
+                    "id": e.theme,
+                    "theme": names.get(e.theme, (e.theme, None))[0],
+                    "kind": names.get(e.theme, (None, None))[1],
+                }
+                for e in entries
+            ],  # fmt: skip
+            "dropped": [names.get(d, (d, None))[0] for d in dropped],
             "themes": [{"name": n, "pattern": themes.pattern(b)} for n, b in themes.THEMES],
             "topics": list(READ_TOPICS),
         }
@@ -491,3 +594,29 @@ class Store:
             "decisions": decisions(),
             "experiment": settings().experiment,
         }
+
+    # ── s02: the miner ──────────────────────────────────────────────────────────────────
+    def mentions(self, **filters: Any) -> dict[str, Any]:
+        with self._con() as con:
+            return mining.mentions(con, **filters)
+
+    def assets(self, kind: str | None, q: str | None) -> dict[str, Any]:
+        with self._con() as con:
+            return mining.assets(con, kind, q)
+
+    def asset(self, asset_id: str) -> dict[str, Any] | None:
+        with self._con() as con:
+            return mining.asset(con, asset_id)
+
+    def mining(self) -> dict[str, Any]:
+        with self._con() as con:
+            out = mining.summary(con)
+        out["mlflow"] = self.mlflow.mining_urls(
+            [r["mlflow_run_id"] for r in out["runs"]]
+            + ([out["eval"]["mlflow_run_id"]] if out["eval"] else [])
+        )
+        return out
+
+    def spot_checks(self) -> list[dict[str, Any]]:
+        with self._con() as con:
+            return mining.spot_checks(con)

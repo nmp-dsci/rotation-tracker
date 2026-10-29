@@ -101,16 +101,22 @@ export type SearchResult = {
 };
 
 export type ChartEntry = {
-  theme: string;
+  id: string; // the theme's name, or the asset id on the assets view
+  theme: string; // what to show: the theme, or the asset's name
+  kind: string | null; // the asset's layer on the assets view
   mentions: number;
   weeks_hit: number;
   rate: number;
-  rank: number;
+  rank: number | null; // null: not mentioned in the quarter
   prev_rank: number | null;
-  move: 'new' | 'up' | 'down' | 'same';
+  move: 'new' | 'up' | 'down' | 'same' | 'none';
+  total: number; // mentions in every quarter on record
   history: number[];
+  bullish: number[];
+  bearish: number[];
 };
 export type Chart = {
+  view: 'themes' | 'assets';
   version: string;
   quarter: string;
   previous: string | null;
@@ -155,6 +161,197 @@ export type Pipeline = {
   experiment: string;
 };
 
+// ── s02: the miner ─────────────────────────────────────────────────────────
+export type Play = 'rotation' | 'flow' | 'valuation' | 'technical' | 'regime' | 'relative' | 'call' | 'other';
+export const PLAYS: Play[] = ['rotation', 'flow', 'valuation', 'technical', 'regime', 'relative', 'call', 'other'];
+export type Stance = 'bullish' | 'bearish' | 'neutral';
+export type Role = 'subject' | 'from' | 'to' | 'versus';
+
+export type MentionAsset = {
+  asset_id: string | null;
+  name: string | null;
+  kind: string | null;
+  proxy: string | null;
+  role: Role;
+  stance: Stance;
+  spoken: string;
+  resolution: 'alias' | 'ticker' | 'ambiguous' | 'unknown';
+};
+export type Mention = {
+  id: number;
+  video_id: string;
+  week_friday: string;
+  title: string;
+  play: Play;
+  direction: string;
+  stance: Stance;
+  speaker: 'him' | 'reported';
+  reported_source: string | null;
+  modality: 'observed' | 'expected' | 'recommended';
+  horizon: string;
+  confidence: number;
+  quote: string;
+  section_idx: number;
+  section_title: string | null;
+  t_seconds: number | null;
+  located: string;
+  match_score: number;
+  run_id: string;
+  assets: MentionAsset[];
+};
+export type Mentions = {
+  version: string;
+  total: number;
+  rows: Mention[];
+  facets: Record<'play' | 'year' | 'speaker' | 'modality' | 'stance', Record<string, number>>;
+  coverage: { mined: number; weeks: number };
+  plays: Play[];
+  directions: Record<Play, string[]>;
+};
+export type AssetRow = {
+  id: string;
+  name: string;
+  kind: string;
+  proxy: string | null;
+  ticker: string | null;
+  gics_sector: string | null;
+  sp500: boolean;
+  ndx: boolean;
+  mentions: number;
+  weeks: number;
+  bullish: number;
+  bearish: number;
+  rotation: number;
+  last_week: string;
+};
+export type Assets = {
+  rows: AssetRow[];
+  kinds: { kind: string; assets: number; mentions: number }[];
+  universe: { kind: string; n: number }[];
+};
+export type StripCell = {
+  week_friday: string;
+  video_id: string;
+  mined: boolean;
+  up: number;
+  down: number;
+  flat: number;
+  rotation: number;
+};
+export type AssetDetail = {
+  asset: {
+    id: string;
+    kind: string;
+    name: string;
+    ticker: string | null;
+    proxy: string | null;
+    gics_sector: string | null;
+    gics_sub_industry: string | null;
+    exchange: string | null;
+    sp500: boolean;
+    sp500_added: string | null;
+    ndx: boolean;
+    source: string;
+    snapshot: string;
+    assets_version: string;
+  };
+  aliases: string[];
+  strip: StripCell[];
+  mentions: Mention[];
+  total: number;
+  by_play: Record<string, number>;
+};
+export type MineRun = {
+  run_id: string;
+  engine: 'llm' | 'regex';
+  extractor_version: string;
+  prompt_sha: string | null;
+  model: string | null;
+  effort: string | null;
+  mode: string;
+  purpose: string;
+  batch_id: string | null;
+  status: string;
+  started_at: string;
+  finished_at: string | null;
+  weeks: number;
+  mentions: number;
+  dropped: number;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  usd: number;
+  mlflow_run_id: string | null;
+  detail: string | null;
+};
+export type PlayScore = { tp: number; pred: number; gold: number; precision: number | null; recall: number | null; f1: number | null };
+export type GateRow = { value: number | null; bar: string; pass: boolean };
+export type EvalMetrics = {
+  per_play: Record<Play, PlayScore>;
+  precision: number | null;
+  recall: number | null;
+  f1: number | null;
+  matched: number;
+  pred: number;
+  gold: number;
+  direction_accuracy: number | null;
+  asset_accuracy: number | null;
+  asset_overlap: number | null;
+  play_confusion: Record<string, number>;
+  rotation_precision: number | null;
+  rotation_recall: number | null;
+  dropped_rate: number | null;
+  unknown_rate: number | null;
+  gate: Record<string, GateRow>;
+  gate_pass: boolean;
+  weeks: number;
+  labels: Record<string, number>;
+  baseline?: { run_id: string; precision: number | null; recall: number | null; f1: number | null; rotation_precision: number | null; rotation_recall: number | null; per_play: Record<Play, PlayScore> };
+  agreement?: { run_id: string; weeks: number; f1: number | null; rotation_f1: number | null };
+};
+export type Mining = {
+  version: string;
+  prompt_sha: string;
+  label_mode: boolean;
+  coverage: { mined: number; weeks: number; mentions: number; assets: number; unknown: number; first_week: string | null; last_week: string | null };
+  runs: MineRun[];
+  eval: { id: number; run_id: string; gold_run_id: string; at: string; metrics: EvalMetrics; gate_pass: boolean; mlflow_run_id: string | null } | null;
+  history: {
+    at: string;
+    run_id: string;
+    prompt_sha: string;
+    gold_run_id: string;
+    gate_pass: boolean;
+    rotation_precision: number | null;
+    rotation_recall: number | null;
+    rotation_run_to_run: number | null;
+    f1: number | null;
+    rotation_pred: number;
+    rotation_gold: number;
+  }[];
+  unknown: { spoken: string; kind_guess: string | null; ticker_guess: string | null; n: number; weeks: number }[];
+  plays: { play: Play; n: number; weeks: number; bullish: number; bearish: number }[];
+  spend: { purpose: string; runs: number; usd: number; weeks: number; output_tokens: number }[];
+  gold: {
+    weeks: { video_id: string; week_friday: string }[];
+    labels: { source: string; verdict: string; n: number }[];
+    spot: { total: number; done: number };
+  };
+  drops: { reason: string; play: string; quote: string; week_friday: string; video_id: string }[];
+  mlflow: { experiment: string | null; runs: Record<string, string> };
+};
+export type OwnerLabel = { verdict: 'correct' | 'wrong' | 'fix'; fixes: Record<string, string>; note: string | null; at?: string };
+export type SpotCheck = Mention & {
+  ord: number;
+  before: string;
+  after: string;
+  owner: OwnerLabel | null;
+  second_read: OwnerLabel | null;
+};
+export type Labels = { label_mode: boolean; items: SpotCheck[] };
+export type MentionFilters = Partial<Record<'play' | 'direction' | 'stance' | 'asset' | 'kind' | 'year' | 'speaker' | 'modality' | 'week' | 'q' | 'limit', string | number | null>>;
+
 const seg = (s: string) => encodeURIComponent(s);
 function qs(p: Record<string, string | number | null | undefined>): string {
   const e = Object.entries(p).filter(([, v]) => v != null && v !== '');
@@ -169,8 +366,13 @@ export const api = {
   chunks: (id: string) => `/api/weeks/${seg(id)}/chunks`,
   search: (q: string, topics: Topic[], order: 'recent' | 'rank') =>
     `/api/search${qs({ q, topics: topics.join(','), order })}`,
-  chart: (quarter?: string | null) => `/api/chart${qs({ quarter })}`,
+  chart: (quarter?: string | null, view?: string | null) => `/api/chart${qs({ quarter, view })}`,
   pipeline: () => '/api/pipeline',
+  mentions: (f: MentionFilters) => `/api/mentions${qs(f)}`,
+  assets: (kind?: string | null, q?: string | null) => `/api/assets${qs({ kind, q })}`,
+  asset: (id: string) => `/api/assets/${seg(id)}`,
+  mining: () => '/api/mining',
+  labels: () => '/api/labels',
 };
 
 // SHOWCASE_BASE (nmp-central-ai s06) puts the app under a sub-path; API paths follow it.
@@ -202,6 +404,14 @@ export class HttpError extends Error {
 
 export async function get<T>(url: string): Promise<T> {
   return read<T>(await fetch(abs(url)), url);
+}
+
+/** The viewer's one write: an owner spot-check (only under `rt serve --label`). */
+export async function post<T>(url: string, body: unknown): Promise<T> {
+  return read<T>(
+    await fetch(abs(url), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
+    url,
+  );
 }
 
 /** GET a URL whenever it changes; `url: null` fetches nothing. Stale data stays until the new arrives. */

@@ -14,5 +14,9 @@ private:
   - /api/weeks/{id}
   - /api/weeks/{id}/chunks
   - /api/search
-# The viewer has no write route.
-write: []
+  # s02: mentions and spot-checks carry verbatim quotes; an asset page lists its mentions.
+  - /api/mentions
+  - /api/assets/{id}
+  - /api/labels
+# One write route, off unless `rt serve --label`; a frozen build never has it.
+write: [/api/labels]
