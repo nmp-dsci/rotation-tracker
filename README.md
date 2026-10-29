@@ -131,10 +131,10 @@ uv run rt mine run --since 2026-10-30 --purpose new-week --max-usd 1   # after r
 ### The viewer
 
 A local site for browsing the corpus: every weekly wrap, each transcript cut into chapter
-"tracks", Chroma's chunks, full-text search, a quarterly chart of themes by mentions, and the
+"tracks", Chroma's chunks, full-text search, a quarterly chart of keyword themes and mined assets (mentions per wrap, with bullish and bearish lines from the miner's calls), and the
 liner notes (what was built, where it lives, what it cost). From s02 it also shows the mined
 mentions (`/mentions`), the asset map with a week-by-week strip per asset (`/assets`), the
-miner's eval, gate, runs and cost (`/mining`), and the gold-set spot-checks (`/label`). It reads Postgres as `rotation_ro`,
+miner's eval, gate, runs and cost (the Miner tab, `/mining`), and the gold-set spot-checks (`/label`). It reads Postgres as `rotation_ro`,
 reads transcript·lab's Chroma store read-only (straight from its SQLite file), links to MLflow, and binds to 127.0.0.1 only.
 The look follows the Lovable "Sonora" music template, built on the portfolio's house UI. Plan
 of record: [`ai_specs/s01_viewer.md`](ai_specs/s01_viewer.md).
