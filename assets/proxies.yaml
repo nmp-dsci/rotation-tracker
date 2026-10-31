@@ -1,0 +1,216 @@
+# proxies/v2: the price series that stand for each asset (ai_specs/s03_prices.md).
+#
+# A series is a typed key, the same string in market-getdata, which fetches it:
+#   yahoo:<SYMBOL>  a Yahoo Finance symbol in Yahoo spelling (BRK-B, ^VIX, BTC-USD, CL=F, DX-Y.NYB).
+#                   Charted as performance: adjusted close, rebased to 100.
+#   fred:<ID>       a FRED series, latest vintage. Charted as a level in its own units.
+#   basket:<id>     an equal-weight basket, rebalanced monthly, defined in market-getdata's
+#                   baskets.yaml (the ids below). Charted as performance, rebased to 100.
+#   none            deliberately unpriced; `reason` says why.
+#
+# Every curated asset in assets/themes.yaml has a row here. A stock or fund from the listings needs
+# none: it is priced by its own ticker in Yahoo spelling (stock:BRK.B → yahoo:BRK-B); a row here
+# overrides that. `primary` is what a mention of the asset is measured against; `companions` are
+# what the measurement also looks at, never a replacement. Either may be a key or
+# {series, from, to, note}, where `from`/`to` bound the dates the series stands for the asset.
+#
+# `rt assets seed` writes this to rt.asset_proxies (and rt.assets.proxy, the primary's bare Yahoo
+# symbol, for compatibility); `rt assets export-symbols` hands every series to market-getdata;
+# `rt assets check-proxies` fails when an asset with a mention resolves to nothing.
+version: proxies/v2
+
+baskets:
+  defensives: "XLP + XLU + XLV (staples, utilities, health care: his own definition)"
+  cyclicals: "XLI + XLB + XLY + XLF + XLE"
+  mag7: "AAPL, MSFT, GOOGL, AMZN, META, NVDA, TSLA"
+  crypto: "BTC-USD + ETH-USD"
+  alts: "ETH-USD, SOL-USD, XRP-USD, ADA-USD, DOGE-USD"
+  hardware: "today's S&P 500 members in GICS Technology Hardware, Storage & Peripherals (survivorship)"
+  meme: "GME + AMC"
+
+assets:
+  # ── index ───────────────────────────────────────────────────────────────────
+  "index:spx": {primary: "yahoo:SPY"}
+  "index:ndx": {primary: "yahoo:QQQ"}
+  "index:dji": {primary: "yahoo:DIA"}
+  "index:djt": {primary: "yahoo:^DJT"}
+  "index:rut": {primary: "yahoo:IWM", companions: [{series: "yahoo:MDY", note: "he names it"}]}
+  "index:vix": {primary: "yahoo:^VIX"}
+  "index:move": {primary: "yahoo:^MOVE"}
+  "index:rsp": {primary: "yahoo:RSP"}
+  "index:nya": {primary: "yahoo:^NYA"}
+
+  # ── sector (GICS, 11) ───────────────────────────────────────────────────────
+  "sector:tech": {primary: "yahoo:XLK"}
+  "sector:financials": {primary: "yahoo:XLF"}
+  "sector:energy": {primary: "yahoo:XLE", companions: ["yahoo:USO", "fred:DCOILWTICO"]}
+  "sector:healthcare": {primary: "yahoo:XLV", companions: ["yahoo:XBI"]}
+  "sector:utilities": {primary: "yahoo:XLU"}
+  "sector:discretionary": {primary: "yahoo:XLY", companions: ["yahoo:XLP", "yahoo:XRT"]}
+  "sector:staples": {primary: "yahoo:XLP"}
+  "sector:industrials": {primary: "yahoo:XLI", companions: ["yahoo:IYT"]}
+  "sector:materials": {primary: "yahoo:XLB"}
+  "sector:real-estate": {primary: "yahoo:XLRE", companions: ["yahoo:ITB", "fred:MORTGAGE30US"]}
+  "sector:communications": {primary: "yahoo:XLC"}
+
+  # ── theme ───────────────────────────────────────────────────────────────────
+  "theme:semis": {primary: "yahoo:SMH", companions: ["yahoo:SOXX", "yahoo:NVDA"]}
+  "theme:software": {primary: "yahoo:IGV", companions: [{series: "yahoo:XSW", note: "he names it"}]}
+  "theme:mag7":
+    primary: "basket:mag7"
+    companions:
+      - {series: "yahoo:MAGS", from: 2023-04-11, note: "the ETF launched in Apr 2023"}
+      - "yahoo:MGK"
+  "theme:ai":
+    primary: {series: "yahoo:AIQ", note: "Global X AI & Technology; he names AIQ himself"}
+    companions: [{series: "yahoo:SMH", note: "his AI trade is often the chips"}, "basket:mag7"]
+  "theme:banks": {primary: "yahoo:KBE", companions: ["yahoo:XLF", "yahoo:KRE"]}
+  "theme:regional-banks": {primary: "yahoo:KRE"}
+  "theme:homebuilders": {primary: "yahoo:ITB"}
+  "theme:biotech": {primary: "yahoo:XBI"}
+  "theme:miners": {primary: "yahoo:GDX"}
+  "theme:defensives":
+    primary: "basket:defensives"
+    companions: ["yahoo:XLP", "yahoo:XLU", "yahoo:XLV"]
+  "theme:growth": {primary: "yahoo:IWF"}
+  "theme:value": {primary: "yahoo:IWD"}
+  "theme:cyclicals": {primary: "basket:cyclicals"}
+  "theme:transports": {primary: "yahoo:IYT"}
+  "theme:airlines": {primary: "yahoo:JETS"}
+  "theme:retail": {primary: "yahoo:XRT"}
+  "theme:crypto-stocks": {primary: "yahoo:WGMI"}
+  "theme:nuclear": {primary: "yahoo:NLR"}
+  "theme:quantum": {primary: "yahoo:QTUM"}
+  "theme:defense": {primary: "yahoo:ITA"}
+  "theme:clean-energy": {primary: "yahoo:ICLN"}
+  "theme:china-stocks": {primary: "yahoo:FXI", companions: ["yahoo:KWEB", "yahoo:CNY=X"]}
+  "theme:emerging-markets": {primary: "yahoo:EEM"}
+  "theme:europe": {primary: "yahoo:VGK"}
+  "theme:australia": {primary: "yahoo:EWA"}
+  "theme:korea": {primary: "yahoo:EWY"}
+  "theme:hardware":
+    primary: {series: "basket:hardware", note: "the GICS sub-industry list, so it moves with membership"}
+  "theme:japan": {primary: "yahoo:EWJ"}
+  "theme:international": {primary: "yahoo:VXUS"}
+  "theme:meme-stocks":
+    primary: {series: "basket:meme", note: "MEME closed in 2023 and relaunched Oct 2025; a basket is the only continuous series"}
+  "theme:speculative": {primary: "yahoo:ARKK"}
+  "theme:dividend": {primary: "yahoo:SCHD"}
+  "theme:ipo": {primary: "yahoo:IPO"}
+  "theme:data-centers":
+    primary: {series: "yahoo:DTCR", note: "Global X Data Center & Digital Infrastructure"}
+    companions: [{series: "yahoo:SRVR", note: "from 2018, for the earlier years"}]
+  "theme:cybersecurity": {primary: "yahoo:CIBR"}
+  "theme:robotics": {primary: "yahoo:BOTZ"}
+  "theme:space": {primary: "yahoo:UFO"}
+  "theme:insurance": {primary: "yahoo:KIE"}
+  "theme:brokers": {primary: "yahoo:IAI"}
+  "theme:restaurants":
+    primary: none
+    reason: "No clean single proxy and no mention yet; choose one when he first talks about it."
+  "theme:travel":
+    primary: none
+    reason: "Travel, leisure, cruises, hotels and casinos have no one ETF; choose one when he first talks about it."
+
+  # ── stock (curated, not US-listed) ──────────────────────────────────────────
+  "stock:tencent": {primary: "yahoo:TCEHY"}
+  "stock:sk-hynix": {primary: "yahoo:000660.KS"}
+
+  # ── crypto ──────────────────────────────────────────────────────────────────
+  "crypto:btc": {primary: "yahoo:BTC-USD", companions: ["yahoo:ETH-USD", "basket:crypto"]}
+  "crypto:eth": {primary: "yahoo:ETH-USD"}
+  "crypto:sol": {primary: "yahoo:SOL-USD"}
+  "crypto:xrp": {primary: "yahoo:XRP-USD"}
+  "crypto:doge": {primary: "yahoo:DOGE-USD"}
+  "crypto:ada": {primary: "yahoo:ADA-USD"}
+  "crypto:trump": {primary: "yahoo:TRUMP35336-USD"}
+  "crypto:alts":
+    primary: {series: "basket:alts", note: "the five alts in the map; SOL joins when its history starts"}
+  "crypto:market":
+    primary: {series: "basket:crypto", note: "Yahoo has no total-market series; two coins are 70% of it"}
+  "crypto:stablecoins":
+    primary: none
+    reason: "A stablecoin's price is $1 by design; the signal is supply (DefiLlama), phase 2 if ever."
+
+  # ── rates and credit ───────────────────────────────────────────────────────
+  # A bullish call on "yields" is bullish on the yield and bearish on TLT: pinning the asset to the
+  # yield and keeping TLT as a companion lets the measurement score either reading.
+  "rates:us10y":
+    primary: "fred:DGS10"
+    companions: [{series: "yahoo:TLT", note: "the price"}, "yahoo:^TNX", "fred:DGS2", "fred:DGS30"]
+  "rates:us2y": {primary: "yahoo:SHY", companions: ["fred:DGS2"]}
+  "rates:us30y": {primary: "yahoo:^TYX", companions: ["fred:DGS30"]}
+  "rates:jgb":
+    primary: {series: "fred:IRLTLT01JPM156N", note: "Japan 10-year, monthly only; Yahoo has no JGB symbol"}
+  "rates:bonds": {primary: "yahoo:TLT"}
+  "rates:10y3m":
+    primary: {series: "fred:T10Y3M", note: "the recession indicator he quotes"}
+  "rates:2s10s": {primary: "fred:T10Y2Y"}
+  "credit:hy": {primary: "yahoo:HYG"}
+  "credit:ig": {primary: "yahoo:LQD"}
+  "credit:private":
+    primary: {series: "yahoo:BIZD", note: "VanEck BDC Income: listed private lenders, the nearest traded thing"}
+
+  # ── commodity ──────────────────────────────────────────────────────────────
+  "commodity:gold": {primary: "yahoo:GLD", companions: ["yahoo:SLV", "yahoo:GDX"]}
+  "commodity:silver": {primary: "yahoo:SLV"}
+  "commodity:oil": {primary: "yahoo:USO", companions: [{series: "fred:DCOILWTICO", note: "WTI spot, no roll cost"}]}
+  "commodity:copper": {primary: "yahoo:CPER"}
+  "commodity:uranium": {primary: "yahoo:URA"}
+  "commodity:natgas": {primary: "yahoo:UNG"}
+  "commodity:platinum": {primary: "yahoo:PPLT"}
+  "commodity:broad": {primary: "yahoo:DBC"}
+  "commodity:ags": {primary: "yahoo:DBA"}
+  "commodity:lithium": {primary: "yahoo:LIT"}
+  "commodity:iron-ore": {primary: "yahoo:TIO=F"}
+  "commodity:aluminium": {primary: "yahoo:ALI=F"}
+
+  # ── fx ─────────────────────────────────────────────────────────────────────
+  "fx:dxy": {primary: "yahoo:DX-Y.NYB", companions: [{series: "fred:DTWEXBGS", note: "broad trade-weighted dollar"}]}
+  "fx:eurusd": {primary: "yahoo:EURUSD=X"}
+  "fx:usdjpy": {primary: "yahoo:USDJPY=X"}
+  "fx:audusd": {primary: "yahoo:AUDUSD=X"}
+  "fx:gbpusd": {primary: "yahoo:GBPUSD=X"}
+  "fx:usdcad": {primary: "yahoo:CAD=X"}
+  "fx:usdcny": {primary: "yahoo:CNY=X"}
+  "fx:usdchf": {primary: "yahoo:CHF=X"}
+
+  # ── macro: an economic series, a stand-in, or none ─────────────────────────
+  "macro:fed":
+    primary: {series: "yahoo:^IRX", note: "13-week T-bill yield"}
+    companions: [{series: "fred:DFF", note: "effective fed funds"}, "fred:DGS3MO"]
+  "macro:inflation":
+    primary: {series: "fred:T5YIE", note: "5-year breakeven: daily and forward-looking"}
+    companions: [{series: "fred:CPIAUCSL", note: "monthly, the headline he reacts to"}]
+  "macro:recession":
+    primary: {series: "fred:T10Y3M", note: "the 10-year minus 3-month spread he quotes"}
+    companions: ["fred:T10Y2Y"]
+  "macro:liquidity":
+    primary: {series: "fred:WALCL", note: "Fed balance sheet, weekly"}
+    companions: [{series: "fred:RRPONTSYD", note: "reverse repo, daily"}]
+  "macro:consumer":
+    primary: {series: "yahoo:XLY", note: "reuse: sector:discretionary"}
+    companions: [{series: "fred:UMCSENT", note: "monthly sentiment"}]
+  "macro:jobs":
+    primary: {series: "fred:ICSA", note: "initial claims, weekly"}
+    companions: [{series: "fred:UNRATE", note: "monthly"}]
+  "macro:housing":
+    primary: {series: "yahoo:ITB", note: "reuse: theme:homebuilders"}
+    companions: [{series: "fred:MORTGAGE30US", note: "weekly"}]
+  "macro:tariffs":
+    primary: none
+    reason: "No price is \"tariffs\"; the mentions stay as context for the calls around them."
+  "macro:china":
+    primary: {series: "yahoo:FXI", note: "reuse: China's economy and Chinese stocks share one ETF"}
+    companions: ["yahoo:CNY=X"]
+  "macro:earnings":
+    primary: none
+    reason: "\"Earnings season\" is a calendar, not a price."
+  "macro:debt":
+    primary: none
+    reason: "TLT and DGS30 already carry the tradable side of US debt; the word itself is context."
+  "macro:geopolitics":
+    primary: none
+    reason: "Context, not a call; oil and gold are their own assets and already priced."
+  "macro:sentiment":
+    primary: {series: "yahoo:^VIX", note: "reuse: index:vix; AAII and put/call are not free daily series"}
