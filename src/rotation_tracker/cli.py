@@ -22,9 +22,8 @@ app.add_typer(gold_app, name="gold", help="s02: the gold set the miner is measur
 
 @db_app.command("migrate")
 def db_migrate() -> None:
-    """Apply sql/*.sql as the superuser (idempotent)."""
-    for name in db.migrate():
-        typer.echo(f"applied {name}")
+    """Apply sql/*.sql as the superuser (idempotent), then import market_staging over fdw."""
+    db.migrate(log=typer.echo)
 
 
 @db_app.command("smoke")
@@ -42,13 +41,124 @@ def assets_seed(
         None, help="Read <name>.{html,json,txt} for sp500, ndx, nasdaqlisted, otherlisted here."
     ),
 ) -> None:
-    """Build rt.assets and rt.aliases from assets/*.yaml and the public listings (free)."""
+    """Build rt.assets, rt.aliases and rt.asset_proxies from assets/*.yaml and the listings."""
     from rotation_tracker.mining import universe
 
     with db.connect() as con:
         report = universe.seed(con, local=local, log=typer.echo)
     for k, v in report.items():
         typer.echo(f"{k:15s} {v}")
+
+
+# Every asset any mention points at (the miner's runs and the regex baseline alike).
+MENTIONED_SQL = """SELECT s.id, s.kind, s.ticker FROM rt.assets s
+                   WHERE EXISTS (SELECT 1 FROM rt.mention_assets a WHERE a.asset_id = s.id)
+                   ORDER BY s.id"""
+
+
+@assets_app.command("check-proxies")
+def assets_check_proxies() -> None:
+    """Fail unless every asset with a mention resolves to a typed series or a reasoned none."""
+    from rotation_tracker.market import proxies
+    from rotation_tracker.mining.universe import curated
+
+    px = proxies.load()
+    problems = proxies.check_curated(px, curated()["assets"])
+    with db.connect(readonly=True) as con:
+        mentioned = con.execute(MENTIONED_SQL).fetchall()
+        counts, more = proxies.check(px, mentioned)
+        problems += more
+        seeded: dict[str, str] = dict(
+            con.execute(
+                """SELECT p.asset_id, p.series FROM rt.asset_proxies p
+                   WHERE p.role = 'primary' AND p.asset_id = ANY(%s)""",
+                ([aid for aid, _, _ in mentioned],),
+            ).fetchall()
+        )
+    for aid, kind, ticker in mentioned:
+        want = px.resolve(aid, kind, ticker)
+        if want and seeded.get(aid) != want[0].series:
+            problems.append(f"{aid}: rt.asset_proxies has {seeded.get(aid)}, proxies.yaml "
+                            f"{want[0].series}; run `rt assets seed`")  # fmt: skip
+    typer.echo(
+        f"{counts['assets']} assets with a mention: {counts['priced']} priced, "
+        f"{counts['none']} reasoned none, {counts['unresolved']} unresolved "
+        f"({proxies.PROXIES_VERSION})"
+    )
+    for p in problems:
+        typer.echo(f"  ✗ {p}")
+    if problems:
+        raise typer.Exit(1)
+    typer.echo("check-proxies: ok")
+
+
+@assets_app.command("export-symbols")
+def assets_export_symbols(
+    out: Path = typer.Option(
+        None, help="Where to write (default ../market-getdata/instruments/rotation-tracker.txt)."
+    ),
+) -> None:
+    """Write the series market-getdata fetches: every proxy and companion, every name he says."""
+    from rotation_tracker.market import proxies
+    from rotation_tracker.mining.universe import curated
+
+    path = out or proxies.EXPORT_DEFAULT
+    px = proxies.load()
+    cur = [(a["id"], a["kind"]) for a in curated()["assets"]]
+    with db.connect(readonly=True) as con:
+        mentioned = con.execute(MENTIONED_SQL).fetchall()
+        listing = {
+            proxies.yahoo_spelling(t): k
+            for t, k in con.execute(
+                "SELECT ticker, kind FROM rt.assets WHERE kind IN ('stock', 'fund') "
+                "AND ticker IS NOT NULL"
+            ).fetchall()
+        }
+    lines = proxies.export(px, cur, mentioned, listing)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(proxies.render(lines))
+    by: dict[str, int] = {}
+    for ln in lines:
+        key = ",".join(ln.reasons)
+        by[key] = by.get(key, 0) + 1
+    typer.echo(f"wrote {len(lines)} series to {path}")
+    for key, n in sorted(by.items(), key=lambda kv: -kv[1]):
+        typer.echo(f"  {n:4d}  {key}")
+    for r in proxies.REASONS:
+        typer.echo(f"  {sum(r in ln.reasons for ln in lines):4d}  with {r}")
+
+
+@assets_app.command("components")
+def assets_components(
+    asset_id: str = typer.Argument(..., help="A category, e.g. theme:software."),
+) -> None:
+    """What is inside a category: its GICS list, his names by mentions, holdings (phase 2)."""
+    from rotation_tracker.market import components, proxies
+
+    with db.connect(readonly=True) as con:
+        row = con.execute(
+            "SELECT id, name, kind, ticker FROM rt.assets WHERE id = %s", (asset_id,)
+        ).fetchone()
+        if row is None:
+            raise typer.BadParameter(f"{asset_id} is not in rt.assets")
+        c = components.components(con, asset_id)
+    aid, name, kind, ticker = row
+    primary = proxies.load().resolve(aid, kind, ticker)
+    typer.echo(f"{aid} · {name} · priced by {primary[0].series if primary else 'nothing'}")
+    if not c["defined"]:
+        typer.echo("no component list: assets/components.yaml maps GICS sub-industries, sectors")
+        typer.echo("and the two indexes to categories, and this asset is not one of them")
+        typer.echo(c["holdings"])
+        return
+    typer.echo(f"members ({'; '.join(c['basis'])}): {len(c['gics'])} names")
+    tickers = [g["ticker"] for g in c["gics"]]
+    for i in range(0, len(tickers), 16):
+        typer.echo("  " + " ".join(tickers[i : i + 16]))
+    typer.echo(f"his names, by mentions (play/v1, today's prompt): {len(c['named'])}")
+    for n in c["named"]:
+        via = "" if n["via"] == "gics" else f"  ({n['via']})"
+        typer.echo(f"  {n['ticker'] or n['asset_id']:8s} {n['mentions']:4d}{via}")
+    typer.echo(c["holdings"])
 
 
 def _pick_weeks(

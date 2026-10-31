@@ -1,329 +1,345 @@
 # assets/v1: the curated layers of the asset map (ai_specs/s02_text_mining.md).
 #
-# Every row is something a mention can be about. `proxy` is the Yahoo Finance symbol whose price
-# history will score the mention in the measurement branch; `null` means no clean proxy exists
-# and none is invented. `aliases` are how it is said on the channel, auto-caption mishearings
-# included; they are matched after normalising (lower case, words only, a leading "the" dropped).
-# A curated alias always beats a company name generated from the listings.
+# Every row is something a mention can be about. The price series that stand for it (a primary and
+# companions, or an explicit `none` with its reason) live in assets/proxies.yaml (proxies/v2, s03);
+# every row here must have an entry there. `aliases` are how it is said on the channel,
+# auto-caption mishearings included; they are matched after normalising (lower case, words only,
+# a leading "the" dropped). A curated alias always beats a company name generated from the
+# listings.
 version: assets/v1
 assets:
   # ── index ───────────────────────────────────────────────────────────────────
-  - {id: "index:spx", kind: index, name: "S&P 500", proxy: SPY,
+  - {id: "index:spx", kind: index, name: "S&P 500",
      aliases: ["s&p", "s&p 500", "s&p500", "sp 500", "sp500", "s and p", "s and p 500", "spx", "spy",
                "s p", "s p 500", "s p500",
                "es", "us 500", "us500", "gspc", "the index", "stock market", "stocks", "us stocks", "equities", "us equities",
                "the market", "market", "markets", "broader market", "overall market", "large caps", "sp", "futures market", "stock futures", "s&p futures", "es futures"]}
-  - {id: "index:ndx", kind: index, name: "Nasdaq-100", proxy: QQQ,
+  - {id: "index:ndx", kind: index, name: "Nasdaq-100",
      aliases: ["nasdaq", "nasdaq 100", "nasdaq100", "ndx", "qqq", "qs", "q s", "cues", "the cues",
                "triple q", "triple qs", "nq", "tech heavy nasdaq", "nasdaq composite", "composite"]}
-  - {id: "index:dji", kind: index, name: "Dow Jones Industrial Average", proxy: DIA,
+  - {id: "index:dji", kind: index, name: "Dow Jones Industrial Average",
      aliases: ["dow", "dow jones", "djia", "dia", "dow 30", "ym"]}
-  - {id: "index:djt", kind: index, name: "Dow Jones Transportation Average", proxy: "^DJT",
+  - {id: "index:djt", kind: index, name: "Dow Jones Transportation Average",
      aliases: ["dow transports", "transports", "dow jones transports", "dow jones transportation",
                "dow jones transportation average", "dow jones transportation index",
                "dow transportation", "dow transportation average", "transportation average",
                "transportations average", "transportation index"]}
-  - {id: "index:rut", kind: index, name: "Russell 2000 (small caps)", proxy: IWM,
+  - {id: "index:rut", kind: index, name: "Russell 2000 (small caps)",
      aliases: ["russell", "russell 2000", "iwm", "rut", "small caps", "small cap", "small cap stocks",
                "smallcaps", "small companies", "rty"]}
-  - {id: "index:vix", kind: index, name: "VIX", proxy: "^VIX",
+  - {id: "index:vix", kind: index, name: "VIX",
      aliases: ["vix", "volatility", "volatility index", "fear gauge", "fear index", "vics", "vicks"]}
-  - {id: "index:move", kind: index, name: "MOVE index (Treasury volatility)", proxy: "^MOVE",
+  - {id: "index:move", kind: index, name: "MOVE index (Treasury volatility)",
      aliases: ["move index", "ice bofa move index", "merrill lynch move index", "bond volatility",
                "bond volatility index", "treasury volatility"]}
-  - {id: "index:rsp", kind: index, name: "S&P 500 equal weight", proxy: RSP,
+  - {id: "index:rsp", kind: index, name: "S&P 500 equal weight",
      aliases: ["equal weight", "equal weight s&p", "equal weighted s&p", "rsp", "equal weight index"]}
-  - {id: "index:nya", kind: index, name: "NYSE Composite", proxy: "^NYA",
+  - {id: "index:nya", kind: index, name: "NYSE Composite",
      aliases: ["nyse", "nyse composite", "new york stock exchange", "nya"]}
 
   # ── sector (GICS, 11) ───────────────────────────────────────────────────────
-  - {id: "sector:tech", kind: sector, name: "Information Technology", proxy: XLK,
+  - {id: "sector:tech", kind: sector, name: "Information Technology",
      aliases: ["tech", "technology", "tech sector", "information technology", "xlk", "tech stocks",
                "technology stocks", "technology sector"]}
-  - {id: "sector:financials", kind: sector, name: "Financials", proxy: XLF,
+  - {id: "sector:financials", kind: sector, name: "Financials",
      aliases: ["financials", "financial", "financial sector", "financial stocks", "xlf",
                "financial services"]}
-  - {id: "sector:energy", kind: sector, name: "Energy", proxy: XLE,
+  - {id: "sector:energy", kind: sector, name: "Energy",
      aliases: ["energy", "energy sector", "energy stocks", "xle", "oil stocks", "oil and gas stocks",
                "oil companies", "oil and gas"]}
-  - {id: "sector:healthcare", kind: sector, name: "Health Care", proxy: XLV,
+  - {id: "sector:healthcare", kind: sector, name: "Health Care",
      aliases: ["healthcare", "health care", "healthcare sector", "xlv", "healthcare stocks",
                "pharma", "pharmaceuticals", "pharmaceutical", "drug makers", "drugmakers", "medical"]}
-  - {id: "sector:utilities", kind: sector, name: "Utilities", proxy: XLU,
+  - {id: "sector:utilities", kind: sector, name: "Utilities",
      aliases: ["utilities", "utility", "utility stocks", "utilities sector", "xlu", "utility sector"]}
-  - {id: "sector:discretionary", kind: sector, name: "Consumer Discretionary", proxy: XLY,
+  - {id: "sector:discretionary", kind: sector, name: "Consumer Discretionary",
      aliases: ["consumer discretionary", "discretionary", "xly", "discretionary stocks",
                "consumer discretionary stocks"]}
-  - {id: "sector:staples", kind: sector, name: "Consumer Staples", proxy: XLP,
+  - {id: "sector:staples", kind: sector, name: "Consumer Staples",
      aliases: ["consumer staples", "staples", "xlp", "staple stocks", "consumer staple"]}
-  - {id: "sector:industrials", kind: sector, name: "Industrials", proxy: XLI,
+  - {id: "sector:industrials", kind: sector, name: "Industrials",
      aliases: ["industrials", "industrial", "industrial stocks", "xli", "industrial sector", "machinery", "machinery stocks"]}
-  - {id: "sector:materials", kind: sector, name: "Materials", proxy: XLB,
+  - {id: "sector:materials", kind: sector, name: "Materials",
      aliases: ["materials", "basic materials", "xlb", "materials sector", "material stocks"]}
-  - {id: "sector:real-estate", kind: sector, name: "Real Estate", proxy: XLRE,
+  - {id: "sector:real-estate", kind: sector, name: "Real Estate",
      aliases: ["real estate", "reits", "reit", "xlre", "real estate sector", "property stocks",
                "commercial real estate"]}
-  - {id: "sector:communications", kind: sector, name: "Communication Services", proxy: XLC,
+  - {id: "sector:communications", kind: sector, name: "Communication Services",
      aliases: ["communication services", "communications", "communication", "telecom", "telecoms",
                "xlc", "media", "media stocks"]}
 
   # ── theme (trader baskets) ──────────────────────────────────────────────────
-  - {id: "theme:semis", kind: theme, name: "Semiconductors", proxy: SMH,
+  - {id: "theme:semis", kind: theme, name: "Semiconductors",
      aliases: ["semis", "semiconductors", "semiconductor", "semiconductor stocks", "chips",
                "chip stocks", "chip makers", "chipmakers", "chip sector", "smh", "soxx", "sox",
                "semiconductor sector", "semi", "chip names"]}
-  - {id: "theme:software", kind: theme, name: "Software", proxy: IGV,
+  - {id: "theme:software", kind: theme, name: "Software",
      aliases: ["software", "software stocks", "saas", "saas stocks", "igv", "software sector",
                "cloud software", "software companies", "software names"]}
-  - {id: "theme:mag7", kind: theme, name: "Magnificent Seven", proxy: MAGS,
+  - {id: "theme:mag7", kind: theme, name: "Magnificent Seven",
      aliases: ["mag 7", "mag7", "mag seven", "magnificent seven", "magnificent 7", "mega caps",
                "megacaps", "mega cap", "mega cap tech", "big tech", "faang", "fang", "mags",
                "magnificent 7 stocks", "mag 7 stocks", "big tech stocks"]}
-  - {id: "theme:ai", kind: theme, name: "AI trade", proxy: null,
+  - {id: "theme:ai", kind: theme, name: "AI trade",
      aliases: ["ai", "artificial intelligence", "ai stocks", "ai trade", "ai names", "ai sector",
                "ai companies", "ai bubble", "ai infrastructure", "ai space"]}
-  - {id: "theme:banks", kind: theme, name: "Banks", proxy: KBE,
+  - {id: "theme:banks", kind: theme, name: "Banks",
      aliases: ["banks", "bank stocks", "big banks", "banking", "banking sector", "kbe", "bank",
                "banking stocks", "the banks"]}
-  - {id: "theme:regional-banks", kind: theme, name: "Regional banks", proxy: KRE,
+  - {id: "theme:regional-banks", kind: theme, name: "Regional banks",
      aliases: ["regional banks", "regional bank", "regional bank stocks", "kre", "regionals",
                "small banks"]}
-  - {id: "theme:homebuilders", kind: theme, name: "Homebuilders", proxy: ITB,
+  - {id: "theme:homebuilders", kind: theme, name: "Homebuilders",
      aliases: ["homebuilders", "home builders", "builders", "home construction", "housing stocks",
                "itb", "xhb", "homebuilder stocks", "home builder stocks"]}
-  - {id: "theme:biotech", kind: theme, name: "Biotech", proxy: XBI,
+  - {id: "theme:biotech", kind: theme, name: "Biotech",
      aliases: ["biotech", "biotechnology", "biotech stocks", "xbi", "ibb"]}
-  - {id: "theme:miners", kind: theme, name: "Gold and silver miners", proxy: GDX,
+  - {id: "theme:miners", kind: theme, name: "Gold and silver miners",
      aliases: ["miners", "gold miners", "mining stocks", "gdx", "gdxj", "junior miners",
                "silver miners", "mining", "gold mining stocks", "precious metals miners", "gold stocks", "silver stocks", "gold miners etf", "mining companies"]}
   - {id: "theme:defensives", kind: theme, name: "Defensives (staples, utilities, health care)",
-     proxy: null,
      aliases: ["defensives", "defensive", "defensive stocks", "defensive sectors", "defensive names",
                "defensive plays", "safe havens in stocks"]}
-  - {id: "theme:growth", kind: theme, name: "Growth stocks", proxy: IWF,
+  - {id: "theme:growth", kind: theme, name: "Growth stocks",
      aliases: ["growth", "growth stocks", "growth names", "iwf", "vug", "high growth"]}
-  - {id: "theme:value", kind: theme, name: "Value stocks", proxy: IWD,
+  - {id: "theme:value", kind: theme, name: "Value stocks",
      aliases: ["value", "value stocks", "value names", "iwd", "vtv"]}
-  - {id: "theme:cyclicals", kind: theme, name: "Cyclicals", proxy: null,
+  - {id: "theme:cyclicals", kind: theme, name: "Cyclicals",
      aliases: ["cyclicals", "cyclical", "cyclical stocks", "cyclical sectors"]}
-  - {id: "theme:transports", kind: theme, name: "Transports", proxy: IYT,
+  - {id: "theme:transports", kind: theme, name: "Transports",
      aliases: ["transportation", "transport stocks", "iyt", "trucking"]}
-  - {id: "theme:airlines", kind: theme, name: "Airlines", proxy: JETS,
+  - {id: "theme:airlines", kind: theme, name: "Airlines",
      aliases: ["airlines", "airline stocks", "jets", "airline"]}
-  - {id: "theme:retail", kind: theme, name: "Retailers", proxy: XRT,
+  - {id: "theme:retail", kind: theme, name: "Retailers",
      aliases: ["retailers", "retail stocks", "xrt", "retail sector"]}
-  - {id: "theme:crypto-stocks", kind: theme, name: "Crypto stocks and bitcoin miners", proxy: WGMI,
+  - {id: "theme:crypto-stocks", kind: theme, name: "Crypto stocks and bitcoin miners",
      aliases: ["crypto stocks", "bitcoin miners", "crypto miners", "bitcoin mining stocks",
                "crypto equities", "crypto related stocks", "bitcoin stocks", "wgmi"]}
-  - {id: "theme:nuclear", kind: theme, name: "Nuclear", proxy: NLR,
+  - {id: "theme:nuclear", kind: theme, name: "Nuclear",
      aliases: ["nuclear", "nuclear stocks", "nuclear energy", "nuclear power", "nlr", "smr",
                "small modular reactors"]}
-  - {id: "theme:quantum", kind: theme, name: "Quantum computing", proxy: QTUM,
+  - {id: "theme:quantum", kind: theme, name: "Quantum computing",
      aliases: ["quantum", "quantum computing", "quantum stocks", "qtum", "quantum computing stocks"]}
-  - {id: "theme:defense", kind: theme, name: "Aerospace and defense", proxy: ITA,
+  - {id: "theme:defense", kind: theme, name: "Aerospace and defense",
      aliases: ["defense", "defence", "defense stocks", "defence stocks", "aerospace and defense",
                "ita", "aerospace", "military stocks"]}
-  - {id: "theme:clean-energy", kind: theme, name: "Clean energy and solar", proxy: ICLN,
+  - {id: "theme:clean-energy", kind: theme, name: "Clean energy and solar",
      aliases: ["clean energy", "solar", "solar stocks", "renewables", "green energy", "icln", "tan",
                "renewable energy", "ev stocks", "electric vehicles", "evs"]}
-  - {id: "theme:china-stocks", kind: theme, name: "Chinese stocks", proxy: FXI,
+  - {id: "theme:china-stocks", kind: theme, name: "Chinese stocks",
      aliases: ["chinese stocks", "china stocks", "fxi", "kweb", "hang seng", "chinese equities",
                "chinese tech", "china tech", "hsi", "hang seng index", "hong kong", "hong kong stocks", "shanghai composite", "shanghai", "chinese market", "000001"]}
-  - {id: "theme:emerging-markets", kind: theme, name: "Emerging markets", proxy: EEM,
+  - {id: "theme:emerging-markets", kind: theme, name: "Emerging markets",
      aliases: ["emerging markets", "eem", "em", "emerging market stocks", "emerging market"]}
-  - {id: "theme:europe", kind: theme, name: "European stocks", proxy: VGK,
+  - {id: "theme:europe", kind: theme, name: "European stocks",
      aliases: ["europe", "european stocks", "european markets", "vgk", "dax", "ftse", "stoxx",
                "european equities", "german 40", "german market", "germany", "german stocks", "gdaxi", "dax 40"]}
-  - {id: "theme:australia", kind: theme, name: "Australian stocks", proxy: EWA,
+  - {id: "theme:australia", kind: theme, name: "Australian stocks",
      aliases: ["xjo", "axjo", "asx", "asx 200", "australian market", "aussie market",
                "australian stocks", "aussie stocks", "ewa"]}
-  - {id: "theme:korea", kind: theme, name: "Korean stocks", proxy: EWY,
+  - {id: "theme:korea", kind: theme, name: "Korean stocks",
      aliases: ["kospi", "cosby", "kospy", "korea", "korean stocks", "korean market", "ewy", "ks11"]}
-  - {id: "theme:hardware", kind: theme, name: "Tech hardware", proxy: null,
+  - {id: "theme:hardware", kind: theme, name: "Tech hardware",
      aliases: ["hardware", "hardwares", "hardware stocks", "hardware trade", "tech hardware",
                "hardware names", "hardware sector"]}
-  - {id: "theme:japan", kind: theme, name: "Japanese stocks", proxy: EWJ,
+  - {id: "theme:japan", kind: theme, name: "Japanese stocks",
      aliases: ["japan", "japanese stocks", "nikkei", "ewj", "japanese market", "japanese equities", "niki", "nik", "nikkei 225", "n225"]}
-  - {id: "theme:international", kind: theme, name: "International stocks (ex-US)", proxy: VXUS,
+  - {id: "theme:international", kind: theme, name: "International stocks (ex-US)",
      aliases: ["international stocks", "international", "global stocks", "ex us", "vxus", "efa",
                "rest of the world", "international markets", "foreign stocks"]}
-  - {id: "theme:meme-stocks", kind: theme, name: "Meme stocks", proxy: null,
+  - {id: "theme:meme-stocks", kind: theme, name: "Meme stocks",
      aliases: ["meme stocks", "meme", "memes", "meme names", "meme stock"]}
-  - {id: "theme:speculative", kind: theme, name: "Speculative and unprofitable tech", proxy: ARKK,
+  - {id: "theme:speculative", kind: theme, name: "Speculative and unprofitable tech",
      aliases: ["speculative stocks", "speculative names", "unprofitable tech", "arkk", "ark",
                "spec stocks", "high beta", "high beta stocks", "junk stocks", "penny stocks",
                "speculative tech"]}
-  - {id: "theme:dividend", kind: theme, name: "Dividend stocks", proxy: SCHD,
+  - {id: "theme:dividend", kind: theme, name: "Dividend stocks",
      aliases: ["dividend stocks", "dividends", "dividend payers", "schd", "high dividend",
                "dividend aristocrats", "income stocks"]}
-  - {id: "theme:ipo", kind: theme, name: "IPOs", proxy: IPO,
+  - {id: "theme:ipo", kind: theme, name: "IPOs",
      aliases: ["ipos", "ipo", "new listings", "ipo market"]}
-  - {id: "theme:data-centers", kind: theme, name: "Data centres and AI infrastructure", proxy: null,
+  - {id: "theme:data-centers", kind: theme, name: "Data centres and AI infrastructure",
      aliases: ["data centers", "data centres", "data center stocks", "ai infrastructure stocks",
                "power and data centers", "hyperscalers"]}
-  - {id: "theme:cybersecurity", kind: theme, name: "Cybersecurity", proxy: CIBR,
+  - {id: "theme:cybersecurity", kind: theme, name: "Cybersecurity",
      aliases: ["cybersecurity", "cyber security", "cyber", "cybersecurity stocks", "cibr", "hack"]}
-  - {id: "theme:robotics", kind: theme, name: "Robotics", proxy: BOTZ,
+  - {id: "theme:robotics", kind: theme, name: "Robotics",
      aliases: ["robotics", "robots", "robotics stocks", "botz", "humanoid robots", "humanoids"]}
-  - {id: "theme:space", kind: theme, name: "Space stocks", proxy: UFO,
+  - {id: "theme:space", kind: theme, name: "Space stocks",
      aliases: ["space", "space stocks", "ufo", "space sector"]}
-  - {id: "theme:insurance", kind: theme, name: "Insurers", proxy: KIE,
+  - {id: "theme:insurance", kind: theme, name: "Insurers",
      aliases: ["insurance", "insurers", "insurance stocks", "kie", "insurance companies"]}
-  - {id: "theme:brokers", kind: theme, name: "Brokers and exchanges", proxy: IAI,
+  - {id: "theme:brokers", kind: theme, name: "Brokers and exchanges",
      aliases: ["brokers", "brokerages", "investment banks", "iai", "broker dealers"]}
-  - {id: "theme:restaurants", kind: theme, name: "Restaurants", proxy: null,
+  - {id: "theme:restaurants", kind: theme, name: "Restaurants",
      aliases: ["restaurants", "restaurant stocks", "fast food"]}
-  - {id: "theme:travel", kind: theme, name: "Travel and leisure", proxy: null,
+  - {id: "theme:travel", kind: theme, name: "Travel and leisure",
      aliases: ["travel", "travel stocks", "leisure", "cruise lines", "cruise stocks", "hotels",
                "casinos", "travel and leisure"]}
 
-  # ── stock (not US-listed, so no listing row; proxy is the OTC ADR or home listing) ──
-  - {id: "stock:tencent", kind: stock, name: "Tencent Holdings", proxy: TCEHY,
+  # ── stock (not US-listed, so no listing row; priced by the OTC ADR or home listing) ──
+  - {id: "stock:tencent", kind: stock, name: "Tencent Holdings",
      aliases: ["tencent", "10 cent", "10cent", "ten cent", "tcehy"]}
-  - {id: "stock:sk-hynix", kind: stock, name: "SK Hynix", proxy: "000660.KS",
+  - {id: "stock:sk-hynix", kind: stock, name: "SK Hynix",
      aliases: ["sk hynix", "hynix", "heinix", "sk heinix"]}
 
   # ── crypto ──────────────────────────────────────────────────────────────────
-  - {id: "crypto:btc", kind: crypto, name: "Bitcoin", proxy: BTC-USD,
+  - {id: "crypto:btc", kind: crypto, name: "Bitcoin",
      aliases: ["bitcoin", "btc", "ibit", "bitcoin etf", "bitcoin etfs", "spot bitcoin etf",
                "spot bitcoin etfs", "fbtc", "gbtc", "bit coin", "bitcoins"]}
-  - {id: "crypto:eth", kind: crypto, name: "Ethereum", proxy: ETH-USD,
+  - {id: "crypto:eth", kind: crypto, name: "Ethereum",
      aliases: ["ethereum", "eth", "ether", "etha", "ethereum etf", "ethereum etfs", "etherium"]}
-  - {id: "crypto:sol", kind: crypto, name: "Solana", proxy: SOL-USD,
+  - {id: "crypto:sol", kind: crypto, name: "Solana",
      aliases: ["solana", "sol"]}
-  - {id: "crypto:xrp", kind: crypto, name: "XRP", proxy: XRP-USD,
+  - {id: "crypto:xrp", kind: crypto, name: "XRP",
      aliases: ["xrp", "ripple"]}
-  - {id: "crypto:doge", kind: crypto, name: "Dogecoin", proxy: DOGE-USD,
+  - {id: "crypto:doge", kind: crypto, name: "Dogecoin",
      aliases: ["dogecoin", "doge", "doge coin"]}
-  - {id: "crypto:ada", kind: crypto, name: "Cardano", proxy: ADA-USD,
+  - {id: "crypto:ada", kind: crypto, name: "Cardano",
      aliases: ["cardano", "ada"]}
-  - {id: "crypto:trump", kind: crypto, name: "Official Trump (memecoin)", proxy: TRUMP35336-USD,
+  - {id: "crypto:trump", kind: crypto, name: "Official Trump (memecoin)",
      aliases: ["trumpcoin", "trump coin", "official trump", "trump memecoin", "trump meme coin"]}
-  - {id: "crypto:alts", kind: crypto, name: "Altcoins", proxy: null,
+  - {id: "crypto:alts", kind: crypto, name: "Altcoins",
      aliases: ["altcoins", "alts", "alt coins", "alt coin", "altcoin", "alt season", "altseason",
                "shitcoins", "meme coins", "memecoins", "other coins", "the other coins", "other alts",
                "other altcoins", "other alt coins"]}
-  - {id: "crypto:market", kind: crypto, name: "Crypto (the market)", proxy: null,
+  - {id: "crypto:market", kind: crypto, name: "Crypto (the market)",
      aliases: ["crypto", "cryptocurrency", "cryptocurrencies", "crypto market", "digital assets",
                "crypto space", "coins", "crypto assets"]}
-  - {id: "crypto:stablecoins", kind: crypto, name: "Stablecoins", proxy: null,
+  - {id: "crypto:stablecoins", kind: crypto, name: "Stablecoins",
      aliases: ["stablecoins", "stable coins", "stablecoin", "usdt", "usdc", "tether"]}
 
   # ── rates and credit ───────────────────────────────────────────────────────
-  - {id: "rates:us10y", kind: rates, name: "US 10-year Treasury yield", proxy: "^TNX",
+  - {id: "rates:us10y", kind: rates, name: "US 10-year Treasury yield",
      aliases: ["10 year", "ten year", "10 year yield", "ten year yield", "10 year treasury",
                "10 year note", "tnx", "yields", "bond yields", "treasury yields", "10y",
                "long term yields", "long end", "interest rates on bonds", "yield", "10 year bond"]}
-  - {id: "rates:us2y", kind: rates, name: "US 2-year Treasury yield", proxy: SHY,
+  - {id: "rates:us2y", kind: rates, name: "US 2-year Treasury yield",
      aliases: ["2 year", "two year", "2 year yield", "two year yield", "2 year treasury",
                "short end", "short term yields", "2y", "two year yields", "2 year yields", "us2y", "2 year treasury yield"]}
-  - {id: "rates:us30y", kind: rates, name: "US 30-year Treasury yield", proxy: "^TYX",
+  - {id: "rates:us30y", kind: rates, name: "US 30-year Treasury yield",
      aliases: ["30 year", "thirty year", "30 year yield", "30 year bond", "tyx", "long bond"]}
-  - {id: "rates:jgb", kind: rates, name: "Japanese government bond yields", proxy: null,
+  - {id: "rates:jgb", kind: rates, name: "Japanese government bond yields",
      aliases: ["japanese yields", "japanese yield", "japanese bond yields", "japanese bonds",
                "japanese government bonds", "jgb", "jgbs", "japan yields", "jp10y",
                "japanese 10 year yield", "japanese 10 year yields", "japanese 2 year yield",
                "japanese 2 year yields", "japanese 30 year yields"]}
-  - {id: "rates:bonds", kind: rates, name: "Long Treasury bonds", proxy: TLT,
+  - {id: "rates:bonds", kind: rates, name: "Long Treasury bonds",
      aliases: ["bonds", "bond", "treasuries", "treasury", "tlt", "government bonds", "us bonds",
                "bond market", "long bonds", "us treasuries", "treasury bonds", "fixed income"]}
-  - {id: "credit:hy", kind: credit, name: "High-yield credit", proxy: HYG,
+  # Yield spreads (s03): FRED prices them directly. Spoken forms from the unknown queue.
+  - {id: "rates:10y3m", kind: rates, name: "US 10-year minus 3-month Treasury spread",
+     aliases: ["10 versus 3 month spread", "10 versus 3 month spread of us treasury yields",
+               "10 versus 3 month spread of treasury yields", "10 versus 3 month", "10 versus 3 spread",
+               "10 year versus 3 month", "10 year versus 3 month spread", "10 year 3 month spread",
+               "10 year minus 3 month", "10 year minus 3 month spread", "3 month 10 year spread",
+               "3 month versus 10 year", "ten year three month spread", "10y3m", "t10y3m",
+               "10s 3s", "3m10y", "3 month 10 year yield curve"]}
+  - {id: "rates:2s10s", kind: rates, name: "US 10-year minus 2-year Treasury spread",
+     aliases: ["2s10s", "2s 10s", "twos tens", "2s10s spread", "2 10 spread", "10 2 spread",
+               "2 year versus 10 year", "two year versus 10 year", "us 2 year versus 10 year",
+               "us 2 year versus us 10 year", "us 2year versus us 10e", "us 2year versus us 10 year",
+               "us 2 versus 10", "2 versus 10", "10 year versus 2 year", "10 versus 2 year",
+               "10 year minus 2 year", "10 year minus 2 year spread", "10 2 year treasury",
+               "10 2year treasury", "10 2 year treasury spread", "2 year 10 year spread",
+               "10y2y", "t10y2y"]}
+  - {id: "credit:hy", kind: credit, name: "High-yield credit",
      aliases: ["junk bonds", "high yield", "high yield bonds", "hyg", "jnk", "credit spreads",
                "credit", "credit markets", "junk", "corporate credit", "credit default swaps", "cds", "default swaps"]}
-  - {id: "credit:ig", kind: credit, name: "Investment-grade credit", proxy: LQD,
+  - {id: "credit:ig", kind: credit, name: "Investment-grade credit",
      aliases: ["investment grade", "corporate bonds", "lqd", "investment grade bonds", "ig"]}
-  - {id: "credit:private", kind: credit, name: "Private credit", proxy: null,
+  - {id: "credit:private", kind: credit, name: "Private credit",
      aliases: ["private credit", "private lending", "private credit funds", "bdcs", "bdc"]}
 
   # ── commodity ──────────────────────────────────────────────────────────────
-  - {id: "commodity:gold", kind: commodity, name: "Gold", proxy: GLD,
+  - {id: "commodity:gold", kind: commodity, name: "Gold",
      aliases: ["gold", "gold price", "gld", "xau", "xauusd", "gold futures", "gc", "bullion",
                "physical gold", "precious metals"]}
-  - {id: "commodity:silver", kind: commodity, name: "Silver", proxy: SLV,
+  - {id: "commodity:silver", kind: commodity, name: "Silver",
      aliases: ["silver", "slv", "xag", "xagusd", "silver price", "silver futures", "si"]}
-  - {id: "commodity:oil", kind: commodity, name: "Crude oil", proxy: USO,
+  - {id: "commodity:oil", kind: commodity, name: "Crude oil",
      aliases: ["oil", "crude", "crude oil", "wti", "brent", "uso", "oil price", "oil prices",
                "cl", "uk oil", "ukoil", "eu oil", "black gold", "petroleum", "diesel", "gasoline", "heating oil", "ho"]}
-  - {id: "commodity:copper", kind: commodity, name: "Copper", proxy: CPER,
+  - {id: "commodity:copper", kind: commodity, name: "Copper",
      aliases: ["copper", "doctor copper", "dr copper", "hg", "copx", "cper", "copper price", "dr cobber", "doctor cobber", "cobber", "copper futures"]}
-  - {id: "commodity:uranium", kind: commodity, name: "Uranium", proxy: URA,
+  - {id: "commodity:uranium", kind: commodity, name: "Uranium",
      aliases: ["uranium", "ura", "uranium stocks", "uranium miners", "urnm", "u3o8"]}
-  - {id: "commodity:natgas", kind: commodity, name: "Natural gas", proxy: UNG,
+  - {id: "commodity:natgas", kind: commodity, name: "Natural gas",
      aliases: ["natural gas", "nat gas", "natgas", "ung", "ng", "gas prices", "lng"]}
-  - {id: "commodity:platinum", kind: commodity, name: "Platinum", proxy: PPLT,
+  - {id: "commodity:platinum", kind: commodity, name: "Platinum",
      aliases: ["platinum", "pplt", "palladium"]}
-  - {id: "commodity:broad", kind: commodity, name: "Commodities (broad)", proxy: DBC,
+  - {id: "commodity:broad", kind: commodity, name: "Commodities (broad)",
      aliases: ["commodities", "commodity", "dbc", "gsg", "commodity complex", "hard assets",
                "raw materials"]}
-  - {id: "commodity:ags", kind: commodity, name: "Agricultural commodities", proxy: DBA,
+  - {id: "commodity:ags", kind: commodity, name: "Agricultural commodities",
      aliases: ["agriculture", "ags", "grains", "wheat", "corn", "soybeans", "dba", "cocoa",
                "coffee", "food prices"]}
-  - {id: "commodity:lithium", kind: commodity, name: "Lithium", proxy: LIT,
+  - {id: "commodity:lithium", kind: commodity, name: "Lithium",
      aliases: ["lithium", "lit", "battery metals"]}
-  - {id: "commodity:iron-ore", kind: commodity, name: "Iron ore", proxy: "TIO=F",
+  - {id: "commodity:iron-ore", kind: commodity, name: "Iron ore",
      aliases: ["iron ore", "inor"]}
-  - {id: "commodity:aluminium", kind: commodity, name: "Aluminium", proxy: "ALI=F",
+  - {id: "commodity:aluminium", kind: commodity, name: "Aluminium",
      aliases: ["aluminium", "aluminum"]}
 
   # ── fx ─────────────────────────────────────────────────────────────────────
-  - {id: "fx:dxy", kind: fx, name: "US dollar index", proxy: DX-Y.NYB,
+  - {id: "fx:dxy", kind: fx, name: "US dollar index",
      aliases: ["dollar", "us dollar", "dxy", "dollar index", "greenback", "usd", "u s dollar",
                "the dollar index", "uup", "dixie"]}
-  - {id: "fx:eurusd", kind: fx, name: "EUR/USD", proxy: EURUSD=X,
+  - {id: "fx:eurusd", kind: fx, name: "EUR/USD",
      aliases: ["euro", "eurusd", "eur usd", "euro dollar", "fiber"]}
-  - {id: "fx:usdjpy", kind: fx, name: "USD/JPY", proxy: USDJPY=X,
+  - {id: "fx:usdjpy", kind: fx, name: "USD/JPY",
      aliases: ["yen", "japanese yen", "usdjpy", "usd jpy", "dollar yen", "jpy", "yen carry trade",
                "carry trade"]}
-  - {id: "fx:audusd", kind: fx, name: "AUD/USD", proxy: AUDUSD=X,
+  - {id: "fx:audusd", kind: fx, name: "AUD/USD",
      aliases: ["aussie", "aussie dollar", "australian dollar", "audusd", "aud usd", "aud", "ozzie",
                "ozzy dollar"]}
-  - {id: "fx:gbpusd", kind: fx, name: "GBP/USD", proxy: GBPUSD=X,
+  - {id: "fx:gbpusd", kind: fx, name: "GBP/USD",
      aliases: ["pound", "british pound", "sterling", "cable", "gbpusd", "gbp usd", "gbp"]}
-  - {id: "fx:usdcad", kind: fx, name: "USD/CAD", proxy: CAD=X,
+  - {id: "fx:usdcad", kind: fx, name: "USD/CAD",
      aliases: ["canadian dollar", "loonie", "usdcad", "usd cad", "cad"]}
-  - {id: "fx:usdcny", kind: fx, name: "USD/CNY", proxy: CNY=X,
+  - {id: "fx:usdcny", kind: fx, name: "USD/CNY",
      aliases: ["yuan", "chinese yuan", "renminbi", "cny", "usdcny"]}
-  - {id: "fx:usdchf", kind: fx, name: "USD/CHF", proxy: CHF=X,
+  - {id: "fx:usdchf", kind: fx, name: "USD/CHF",
      aliases: ["swiss franc", "franc", "usdchf", "chf", "swissie"]}
 
-  # ── macro (no proxy of its own; scored through SPY when a direction is given) ─
-  - {id: "macro:fed", kind: macro, name: "The Fed and policy rates", proxy: "^IRX",
+  # ── macro (no price of its own: proxies.yaml names an economic series, a stand-in or none) ─
+  - {id: "macro:fed", kind: macro, name: "The Fed and policy rates",
      aliases: ["fed", "federal reserve", "interest rates", "rates", "rate cuts", "rate cut",
                "rate hikes", "rate hike", "fed funds", "fed funds rate", "fomc", "powell",
                "monetary policy", "the fed", "central bank", "jerome powell", "fed rate", "fed chair", "terminal rate", "fed terminal rate", "kevin warsh", "kevin walsh", "warsh"]}
-  - {id: "macro:inflation", kind: macro, name: "Inflation", proxy: null,
+  - {id: "macro:inflation", kind: macro, name: "Inflation",
      aliases: ["inflation", "cpi", "pce", "ppi", "price pressures", "consumer prices",
                "inflation data", "disinflation", "deflation", "stagflation", "core inflation", "core cpi", "core pce", "headline inflation"]}
-  - {id: "macro:recession", kind: macro, name: "Recession and growth", proxy: null,
+  - {id: "macro:recession", kind: macro, name: "Recession and growth",
      aliases: ["recession", "economy", "the economy", "gdp", "economic growth", "us economy",
                "soft landing", "hard landing", "slowdown", "economic slowdown", "depression"]}
-  - {id: "macro:liquidity", kind: macro, name: "Liquidity", proxy: null,
+  - {id: "macro:liquidity", kind: macro, name: "Liquidity",
      aliases: ["liquidity", "money supply", "m2", "qe", "qt", "quantitative easing",
                "quantitative tightening", "balance sheet", "fed balance sheet", "global liquidity",
                "money printing"]}
-  - {id: "macro:consumer", kind: macro, name: "The consumer", proxy: null,
+  - {id: "macro:consumer", kind: macro, name: "The consumer",
      aliases: ["consumer", "consumers", "consumer spending", "retail sales", "us consumer",
                "consumer sentiment", "consumer confidence", "household spending", "american consumer", "us consumer spending"]}
-  - {id: "macro:jobs", kind: macro, name: "Jobs and the labour market", proxy: null,
+  - {id: "macro:jobs", kind: macro, name: "Jobs and the labour market",
      aliases: ["jobs", "jobs report", "unemployment", "labor market", "labour market",
                "nonfarm payrolls", "non farm payrolls", "payrolls", "jobless claims",
                "employment", "unemployment rate", "nfp"]}
-  - {id: "macro:housing", kind: macro, name: "Housing market", proxy: null,
+  - {id: "macro:housing", kind: macro, name: "Housing market",
      aliases: ["housing", "housing market", "home prices", "house prices", "mortgage rates",
                "mortgages", "property market", "us home prices", "us home price", "housing in australia", "australian housing"]}
-  - {id: "macro:tariffs", kind: macro, name: "Tariffs and trade", proxy: null,
+  - {id: "macro:tariffs", kind: macro, name: "Tariffs and trade",
      aliases: ["tariffs", "tariff", "trade war", "trade deal", "trade deals", "trade policy"]}
-  - {id: "macro:china", kind: macro, name: "China's economy", proxy: null,
+  - {id: "macro:china", kind: macro, name: "China's economy",
      aliases: ["china", "chinese economy", "china economy", "beijing"]}
-  - {id: "macro:earnings", kind: macro, name: "Corporate earnings", proxy: null,
+  - {id: "macro:earnings", kind: macro, name: "Corporate earnings",
      aliases: ["earnings", "earnings season", "corporate earnings", "profits", "eps",
                "earnings growth"]}
-  - {id: "macro:debt", kind: macro, name: "US debt and deficits", proxy: null,
+  - {id: "macro:debt", kind: macro, name: "US debt and deficits",
      aliases: ["debt", "national debt", "us debt", "deficit", "deficits", "debt ceiling",
                "government debt", "fiscal", "government spending"]}
-  - {id: "macro:geopolitics", kind: macro, name: "Geopolitics and war", proxy: null,
+  - {id: "macro:geopolitics", kind: macro, name: "Geopolitics and war",
      aliases: ["war", "geopolitics", "geopolitical", "middle east", "iran", "israel", "russia",
                "ukraine", "taiwan tensions", "conflict"]}
-  - {id: "macro:sentiment", kind: macro, name: "Market sentiment", proxy: null,
+  - {id: "macro:sentiment", kind: macro, name: "Market sentiment",
      aliases: ["sentiment", "market sentiment", "fear and greed", "fear and greed index",
                "investor sentiment", "aaii", "put call ratio", "positioning"]}

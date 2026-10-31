@@ -2,6 +2,8 @@
  *  this repo is public and transcripts are not committed (AGENTS.md rule 8). */
 import type {
   AssetDetail,
+  PriceLine,
+  PricedSeries,
   Assets,
   Chart,
   Chunk,
@@ -122,6 +124,21 @@ export const search: SearchResult = {
   total: { sections: 1, weeks: 1, of: 2 },
 };
 
+/** Whether the fake market has prices; a test flips it to see the viewer without them. */
+export const market = { prices: true };
+const NO_PRICES =
+  'No prices yet: market_staging.series_values is not there. Prices come from market-getdata; once its staging tables exist, `uv run rt db migrate` imports them over postgres_fdw.';
+
+const px = (series: string, label: string, mode: PriceLine['mode'], points: (number | null)[], first_date: string | null = null): PriceLine => ({
+  series,
+  label,
+  mode,
+  points,
+  name: null,
+  first_date,
+  reason: null,
+});
+
 export const chart: Chart = {
   view: 'themes',
   version: 'themes/v0',
@@ -134,13 +151,15 @@ export const chart: Chart = {
   history_quarters: ['2026-04-01', '2026-07-01'],
   weeks_in_quarter: 13,
   entries: [
-    { id: 'Semiconductors', theme: 'Semiconductors', kind: null, mentions: 130, weeks_hit: 13, rate: 10, rank: 1, prev_rank: 2, move: 'up', total: 195, history: [5, 10], bullish: [2, 6], bearish: [1, 2] },
-    { id: 'Utilities', theme: 'Utilities', kind: null, mentions: 13, weeks_hit: 4, rate: 1, rank: 2, prev_rank: null, move: 'new', total: 13, history: [0, 1], bullish: [0, 0], bearish: [0, 1] },
-    { id: 'China', theme: 'China', kind: null, mentions: 0, weeks_hit: 0, rate: 0, rank: null, prev_rank: 1, move: 'none', total: 260, history: [20, 0], bullish: [4, 0], bearish: [9, 0] },
+    { id: 'Semiconductors', theme: 'Semiconductors', kind: null, asset_id: 'theme:widgets', price: px('yahoo:WDGT', 'WDGT', 'performance', [100, 118.4], '2001-03-01'), mentions: 130, weeks_hit: 13, rate: 10, rank: 1, prev_rank: 2, move: 'up', total: 195, history: [5, 10], bullish: [2, 6], bearish: [1, 2] },
+    { id: 'Utilities', theme: 'Utilities', kind: null, asset_id: 'sector:utilities', price: px('yahoo:UTIL', 'UTIL', 'performance', []), mentions: 13, weeks_hit: 4, rate: 1, rank: 2, prev_rank: null, move: 'new', total: 13, history: [0, 1], bullish: [0, 0], bearish: [0, 1] },
+    { id: 'China', theme: 'China', kind: null, asset_id: 'macro:spread', price: px('fred:SPREAD', 'SPREAD', 'level', [-0.5, 0.25]), mentions: 0, weeks_hit: 0, rate: 0, rank: null, prev_rank: 1, move: 'none', total: 260, history: [20, 0], bullish: [4, 0], bearish: [9, 0] },
   ],
   dropped: [],
   themes: [{ name: 'Semiconductors', pattern: '\\m(?:chips?)\\M' }],
   topics: ['macro-flows', 'untagged'],
+  prices_available: true,
+  prices_notice: null,
 };
 
 export const chartAssets: Chart = {
@@ -148,11 +167,21 @@ export const chartAssets: Chart = {
   view: 'assets',
   version: 'play/v1',
   entries: [
-    { id: 'commodity:gold', theme: 'Gold', kind: 'commodity', mentions: 26, weeks_hit: 12, rate: 2, rank: 1, prev_rank: 1, move: 'same', total: 52, history: [2, 2], bullish: [1.5, 1], bearish: [0.25, 0.5] },
-    { id: 'stock:NVDA', theme: 'Nvidia', kind: 'stock', mentions: 4, weeks_hit: 3, rate: 0.3077, rank: 2, prev_rank: null, move: 'new', total: 4, history: [0, 0.3077], bullish: [0, 0.2308], bearish: [0, 0] },
-    { id: 'crypto:btc', theme: 'Bitcoin', kind: 'crypto', mentions: 0, weeks_hit: 0, rate: 0, rank: null, prev_rank: 2, move: 'none', total: 90, history: [6.9231, 0], bullish: [3, 0], bearish: [2, 0] },
+    { id: 'commodity:gold', theme: 'Gold', kind: 'commodity', asset_id: 'commodity:gold', price: px('yahoo:GOLDX', 'GOLDX', 'performance', [100, 104]), mentions: 26, weeks_hit: 12, rate: 2, rank: 1, prev_rank: 1, move: 'same', total: 52, history: [2, 2], bullish: [1.5, 1], bearish: [0.25, 0.5] },
+    { id: 'stock:NVDA', theme: 'Nvidia', kind: 'stock', asset_id: 'stock:NVDA', price: px('yahoo:NVDA', 'NVDA', 'performance', [null, 100]), mentions: 4, weeks_hit: 3, rate: 0.3077, rank: 2, prev_rank: null, move: 'new', total: 4, history: [0, 0.3077], bullish: [0, 0.2308], bearish: [0, 0] },
+    { id: 'crypto:btc', theme: 'Bitcoin', kind: 'crypto', asset_id: 'crypto:btc', price: { ...px('none', 'none', 'none', []), reason: 'A synthetic reason it is unpriced.' }, mentions: 0, weeks_hit: 0, rate: 0, rank: null, prev_rank: 2, move: 'none', total: 90, history: [6.9231, 0], bullish: [3, 0], bearish: [2, 0] },
   ],
 };
+
+/** The same chart with market_staging absent: every row keeps its series, without points. */
+function withoutPrices(c: Chart): Chart {
+  return {
+    ...c,
+    prices_available: false,
+    prices_notice: NO_PRICES,
+    entries: c.entries.map((e) => ({ ...e, price: e.price && { ...e.price, points: [] } })),
+  };
+}
 
 export const pipeline: Pipeline = {
   status,
@@ -217,7 +246,7 @@ export const mentions: Mentions = {
 };
 export const assets: Assets = {
   rows: [
-    { id: 'theme:widgets', name: 'Widgets', kind: 'theme', proxy: 'WDGT', ticker: null, gics_sector: null, sp500: false, ndx: false, mentions: 3, weeks: 2, bullish: 1, bearish: 2, rotation: 1, last_week: '2026-10-23' },
+    { id: 'theme:widgets', name: 'Widgets', kind: 'theme', proxy: 'WDGT', ticker: null, gics_sector: null, sp500: false, ndx: false, series: 'yahoo:WDGT', series_label: 'WDGT', mentions: 3, weeks: 2, bullish: 1, bearish: 2, rotation: 1, last_week: '2026-10-23' },
   ],
   kinds: [{ kind: 'theme', assets: 1, mentions: 3 }],
   universe: [{ kind: 'stock', n: 10 }, { kind: 'theme', n: 2 }],
@@ -232,7 +261,52 @@ export const asset: AssetDetail = {
   mentions: [mention],
   total: 1,
   by_play: { rotation: 1 },
+  priced_by: {
+    primary: { series: 'yahoo:WDGT', label: 'WDGT', mode: 'performance', role: 'primary', from_date: null, to_date: null, note: null, name: 'Synthetic Widgets ETF', first_date: '2001-03-01', last_date: '2026-10-30' },
+    companions: [
+      { series: 'fred:WIDGETIDX', label: 'WIDGETIDX', mode: 'level', role: 'companion', from_date: null, to_date: null, note: 'a synthetic level', name: null, first_date: '1990-01-02', last_date: '2026-10-30' },
+    ],
+    prices_available: true,
+    notice: null,
+  },
+  components: {
+    version: 'components/v1',
+    defined: true,
+    basis: ['GICS sub-industry Widget Making'],
+    gics: [
+      { asset_id: 'stock:WDGT', ticker: 'WDGT', name: 'Widget Technologies', sub_industry: 'Widget Making' },
+      { asset_id: 'stock:GDGT', ticker: 'GDGT', name: 'Gadget Co', sub_industry: 'Widget Making' },
+    ],
+    named: [{ asset_id: 'stock:WDGT', ticker: 'WDGT', name: 'Widget Technologies', mentions: 7, via: 'gics' }],
+    holdings: 'issuer holdings: phase 2 (market-getdata staging.holdings)',
+  },
 };
+
+/** An asset priced by nothing, on purpose. */
+export const unpriced: AssetDetail = {
+  ...asset,
+  asset: { ...asset.asset, id: 'macro:widget-policy', kind: 'macro', name: 'Widget policy', proxy: null },
+  priced_by: {
+    primary: { series: 'none', label: 'none', mode: 'none', role: 'primary', from_date: null, to_date: null, note: 'A synthetic reason: policy is context, not a price.', name: null, first_date: null, last_date: null },
+    companions: [],
+    prices_available: true,
+    notice: null,
+  },
+  components: { ...asset.components, defined: false, basis: [], gics: [], named: [] },
+};
+
+function assetWithoutPrices(a: AssetDetail): AssetDetail {
+  const strip = (p: PricedSeries) => ({ ...p, name: null, first_date: null, last_date: null });
+  return {
+    ...a,
+    priced_by: {
+      primary: a.priced_by.primary && strip(a.priced_by.primary),
+      companions: a.priced_by.companions.map(strip),
+      prices_available: false,
+      notice: NO_PRICES,
+    },
+  };
+}
 const score = { tp: 1, pred: 1, gold: 1, precision: 1, recall: 1, f1: 1 };
 export const mining: Mining = {
   version: 'play/v1',
@@ -283,11 +357,15 @@ export function respond(url: string): unknown {
   if (path === '/api/weeks/AAAAAAAAAAA') return week;
   if (path === '/api/weeks/AAAAAAAAAAA/chunks') return chunks;
   if (path === '/api/search') return search;
-  if (path === '/api/chart') return url.includes('view=assets') ? chartAssets : chart;
+  if (path === '/api/chart') {
+    const c = url.includes('view=assets') ? chartAssets : chart;
+    return market.prices ? c : withoutPrices(c);
+  }
   if (path === '/api/pipeline') return pipeline;
   if (path === '/api/mentions') return mentions;
   if (path === '/api/assets') return assets;
-  if (path === `/api/assets/${encodeURIComponent('theme:widgets')}`) return asset;
+  if (path === `/api/assets/${encodeURIComponent('theme:widgets')}`) return market.prices ? asset : assetWithoutPrices(asset);
+  if (path === `/api/assets/${encodeURIComponent('macro:widget-policy')}`) return unpriced;
   if (path === '/api/mining') return mining;
   if (path === '/api/labels') return labels;
   return undefined;

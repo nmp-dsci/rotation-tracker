@@ -38,6 +38,30 @@ THEMES: tuple[tuple[str, str], ...] = (
 )
 
 
+# s03: each theme pinned to one asset, so the keyword line, the mined line and one price share a
+# row (the plan's chart map). The asset's primary series in assets/proxies.yaml prices the row.
+ASSET_OF: dict[str, str] = {
+    "Semiconductors": "theme:semis",
+    "Software & SaaS": "theme:software",
+    "AI": "theme:ai",
+    "Big tech": "theme:mag7",
+    "Banks & financials": "theme:banks",
+    "Energy & oil": "sector:energy",
+    "Healthcare": "sector:healthcare",
+    "Small caps": "index:rut",
+    "Gold & silver": "commodity:gold",
+    "Crypto": "crypto:btc",
+    "Bonds & yields": "rates:us10y",
+    "The dollar": "fx:dxy",
+    "China": "theme:china-stocks",
+    "Utilities": "sector:utilities",
+    "Consumer": "sector:discretionary",
+    "Industrials": "sector:industrials",
+    "Real estate": "sector:real-estate",
+    "Defensives": "theme:defensives",
+}
+
+
 def pattern(body: str) -> str:
     return rf"\m(?:{body})\M"
 

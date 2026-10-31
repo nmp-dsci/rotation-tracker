@@ -13,6 +13,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from rotation_tracker import db
+from rotation_tracker.market.prices import label
 from rotation_tracker.mining import extract
 from rotation_tracker.mining.run import CURRENT_PURPOSES, PRODUCTION
 from rotation_tracker.mining.schema import DIRECTIONS, PLAYS
@@ -156,6 +157,8 @@ def assets(
         rows = cur.execute(
             f"""WITH {CURRENT}
                 SELECT s.id, s.name, s.kind, s.proxy, s.ticker, s.gics_sector, s.sp500, s.ndx,
+                       (SELECT p.series FROM rt.asset_proxies p
+                        WHERE p.asset_id = s.id AND p.role = 'primary') AS series,
                        count(*) AS mentions, count(DISTINCT m.video_id) AS weeks,
                        count(*) FILTER (WHERE x.stance = 'bullish') AS bullish,
                        count(*) FILTER (WHERE x.stance = 'bearish') AS bearish,
@@ -182,6 +185,8 @@ def assets(
         universe = cur.execute(
             "SELECT kind, count(*) AS n FROM rt.assets GROUP BY 1 ORDER BY 2 DESC"
         ).fetchall()
+    for r in rows:
+        r["series_label"] = label(r["series"])
     return {"rows": rows, "kinds": kinds, "universe": universe}
 
 

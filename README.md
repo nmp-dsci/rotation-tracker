@@ -119,13 +119,44 @@ Plan of record: [`ai_specs/s02_text_mining.md`](ai_specs/s02_text_mining.md). Ne
 `ANTHROPIC_API_KEY` in `~/.env` or `.env`; every paid command takes a `--max-usd` cap.
 
 ```bash
-uv run rt assets seed                                   # assets/v1 (free; fetches public lists)
+uv run rt assets seed                                   # assets/v1 + proxies/v2 (free; public lists)
 uv run rt mine run --engine regex --all --max-usd 0     # play/v0, the regex baseline (free)
 uv run rt mine run --all --skip-done --batch --purpose backfill --max-usd 50
 uv run rt mine collect <run_id>                         # write a finished batch
 uv run rt mine eval                                     # score against the gold set; the targets
 uv run rt assets unknown                                # what did not resolve
 uv run rt mine run --since 2026-10-30 --purpose new-week --max-usd 1   # after rt sync
+```
+
+### Prices (s03)
+
+Every asset he talks about has a price series, at the category level (Software → IGV) and one
+level down (the names inside Software). **This repo never fetches a price.** The sibling repo
+`market-getdata` (a sibling checkout, `../market-getdata`) loads Yahoo Finance, FRED and equal-weight baskets into its
+own database `market` on the shared Postgres; `rt db migrate` imports its `staging` schema here as
+`market_staging` over postgres_fdw, and the viewer reads it read-only. Plan of record:
+[`ai_specs/s03_prices.md`](ai_specs/s03_prices.md).
+
+- `assets/proxies.yaml` (proxies/v2) says what prices each asset, as typed keys shared with the
+  feed: `yahoo:SMH`, `fred:DGS10`, `basket:defensives`, or `none` with its reason (tariffs,
+  geopolitics, earnings, debt, stablecoins). One primary per asset and any companions (Bonds &
+  yields: the 10-year yield, with TLT beside it). A listed stock or fund is priced by its own
+  ticker. `rt assets seed` writes it to `rt.asset_proxies`.
+- `assets/components.yaml` maps GICS sub-industries and sectors (and the two indexes) to
+  categories, for what is inside each one; issuer ETF holdings are phase 2.
+- `rt assets export-symbols` writes the series the feed should fetch to
+  `../market-getdata/instruments/rotation-tracker.txt` (tab-separated: key, kind, reasons), which
+  is committed in that repo, so the feed never imports this code or reads this database.
+
+Put the `MARKET_*` values in `.env` (see `.env.example`); leave them out and everything runs
+without prices.
+
+```bash
+uv run rt db migrate                    # + market_staging over postgres_fdw (skips with a notice)
+uv run rt assets seed                   # rt.asset_proxies from assets/proxies.yaml
+uv run rt assets check-proxies          # fails unless every mentioned asset has a series or a reasoned none
+uv run rt assets export-symbols         # the instrument list for market-getdata
+uv run rt assets components theme:software   # its GICS list, his names by mentions, holdings (phase 2)
 ```
 
 ### The viewer
@@ -136,6 +167,10 @@ liner notes (what was built, where it lives, what it cost). From s02 it also sho
 mentions (`/mentions`), the asset map with a week-by-week strip per asset (`/assets`), the
 miner's eval, gate, runs and cost (the Miner tab, `/mining`), and the gold-set spot-checks (`/label`). It reads Postgres as `rotation_ro`,
 reads transcript·lab's Chroma store read-only (straight from its SQLite file), links to MLflow, and binds to 127.0.0.1 only.
+From s03 each Chart row has its price under the mention lines (the same time scale, its own height
+scale: Yahoo and baskets rebased to 100, FRED series as levels), and each asset page says what
+prices it ("Priced by IGV since 2001") and lists its components. Without `market_staging` the
+viewer shows a notice and every row still names its series.
 The look follows the Lovable "Sonora" music template, built on the portfolio's house UI. Plan
 of record: [`ai_specs/s01_viewer.md`](ai_specs/s01_viewer.md).
 

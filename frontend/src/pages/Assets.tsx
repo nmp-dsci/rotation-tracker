@@ -36,7 +36,8 @@ export function Assets() {
       <PageHead eyebrow="assets/v1 · every mention resolves to one of these" title="Assets">
         <p className="lede">
           The asset map: indexes, GICS sectors, trader themes, any US-listed stock or fund, crypto, rates, credit,
-          commodities, currencies and macro. Each row carries the proxy whose price will score its mentions.
+          commodities, currencies and macro. Each row carries the series that prices it (assets/proxies.yaml): a
+          Yahoo symbol, a FRED series or a basket, against which its mentions will be measured.
           {data && <> The map holds {int(universe)} assets; {plural(data.rows.length, 'asset')} have been mentioned.</>}
         </p>
       </PageHead>
@@ -65,7 +66,7 @@ export function Assets() {
               <tr>
                 <th>Asset</th>
                 <th>Layer</th>
-                <th>Proxy</th>
+                <th>Priced by</th>
                 <th className="n">Mentions</th>
                 <th className="n">Weeks</th>
                 <th className="n">
@@ -86,7 +87,9 @@ export function Assets() {
                     {a.sp500 && <span className="tag">S&amp;P 500</span>} {a.ndx && <span className="tag">NDX</span>}
                   </td>
                   <td className="layer">{KIND_LABEL[a.kind] ?? a.kind}</td>
-                  <td className="mono">{a.proxy ?? 'none'}</td>
+                  <td className="mono" title={a.series ?? undefined}>
+                    {a.series_label}
+                  </td>
                   <td className="n">{int(a.mentions)}</td>
                   <td className="n">{int(a.weeks)}</td>
                   <td className={`n${a.bullish ? ' bull' : ''}`}>{int(a.bullish)}</td>

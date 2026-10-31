@@ -285,6 +285,15 @@ REAL_R = Resolver(
         ("Cardano", "ADA", "crypto", "crypto:ada"),
         ("trumpcoin", "TRUMP", "crypto", "crypto:trump"),
         ("other alts", None, "crypto", "crypto:alts"),
+        # s03: the yield spreads, as he says them (rates:10y3m → fred:T10Y3M, rates:2s10s → T10Y2Y)
+        ("10 versus 3 month spread of US Treasury yields", None, "rates", "rates:10y3m"),
+        ("10 versus 3 month spread of US Treasury yields", "T10Y3M", "rates", "rates:10y3m"),
+        ("us 2year versus us 10e", None, "rates", "rates:2s10s"),
+        ("two year versus 10-year", None, "rates", "rates:2s10s"),
+        ("the US 2-year versus 10 year", None, "rates", "rates:2s10s"),
+        ("us 2 versus 10", None, "rates", "rates:2s10s"),
+        ("2s10s", None, "rates", "rates:2s10s"),
+        ("10 year", None, "rates", "rates:us10y"),  # the yield alone is still the 10-year
         ("metals", None, "commodity", None),  # too vague to pick one
         ("private equity funds", None, "credit", None),
     ],

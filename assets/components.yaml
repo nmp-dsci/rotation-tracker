@@ -1,0 +1,44 @@
+# components/v1: what is inside a category, one level down (ai_specs/s03_prices.md).
+#
+# A category's components are the union of three lists:
+#   1. GICS: S&P 500 members whose sub-industry or sector maps to the category below (from the
+#      constituent list already in rt.assets: gics_sector, gics_sub_industry), or, for the two
+#      index rows, their membership flags;
+#   2. his names: stocks with a mention that are on that list, plus stocks with no GICS row that
+#      he names in the same role of at least two of the category's mentions; ranked by mentions;
+#   3. the proxy ETF's issuer holdings: phase 2 (market-getdata staging.holdings).
+#
+# `rt assets components <asset_id>` prints them; the viewer's Asset page shows them.
+version: components/v1
+
+# GICS sub-industry → category (one id, or several).
+sub_industries:
+  Application Software: theme:software
+  Systems Software: theme:software
+  Semiconductors: theme:semis
+  Semiconductor Materials & Equipment: theme:semis
+  Diversified Banks: theme:banks
+  Regional Banks: [theme:banks, theme:regional-banks]
+  Homebuilding: theme:homebuilders
+  Biotechnology: theme:biotech
+  # basket:hardware is defined by this sub-industry, so its theme takes the same list
+  Technology Hardware, Storage & Peripherals: theme:hardware
+
+# GICS sector → its sector row.
+sectors:
+  Communication Services: sector:communications
+  Consumer Discretionary: sector:discretionary
+  Consumer Staples: sector:staples
+  Energy: sector:energy
+  Financials: sector:financials
+  Health Care: sector:healthcare
+  Industrials: sector:industrials
+  Information Technology: sector:tech
+  Materials: sector:materials
+  Real Estate: sector:real-estate
+  Utilities: sector:utilities
+
+# Index row → the membership flag on rt.assets.
+indexes:
+  index:spx: sp500
+  index:ndx: ndx

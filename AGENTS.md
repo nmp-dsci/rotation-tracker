@@ -16,10 +16,12 @@ style, theme or stock and into another), and tests whether names sold down by
 a rotation rebound when it ends. Four stages: **extract → signal → backtest →
 listener**. `README.md` has the thesis and the roadmap.
 
-**Status: M2, extraction (s02); every week is backfilled (199/199, no gate).** Source: FX Evolution's weekly market wrap, 2023 onwards, one video per week
+**Status: M2, extraction (s02); every week is backfilled (199/199, no gate). s03, prices, on
+branch `prices`.** Source: FX Evolution's weekly market wrap, 2023 onwards, one video per week
 (`pick/v1`). Read `ai_specs/s00_data_pipeline.md` before changing ingestion,
-`ai_specs/s01_viewer.md` before changing the viewer, and `ai_specs/s02_text_mining.md`
-before changing the miner, its prompt or the asset map.
+`ai_specs/s01_viewer.md` before changing the viewer, `ai_specs/s02_text_mining.md`
+before changing the miner, its prompt or the asset map, and `ai_specs/s03_prices.md` before
+changing `assets/proxies.yaml`, `assets/components.yaml`, the fdw or anything that reads prices.
 
 ## Vocabulary
 
@@ -98,6 +100,19 @@ before changing the miner, its prompt or the asset map.
 - Changing `mining/prompt.md` changes `prompt_sha`; re-run the gold pass, the second read
   and `rt mine eval` to measure it against the targets before trusting runs made with it. The
   targets are reported, not a gate: nothing waits on them.
+- **Prices (s03): this repo never fetches a price.** The sibling `../market-getdata` loads them
+  into database `market`; `rt db migrate` imports its `staging` schema here as `market_staging`
+  over postgres_fdw, and the viewer reads it as `rotation_ro`. What prices an asset is
+  `assets/proxies.yaml` (proxies/v2): typed series keys `yahoo:<SYMBOL>` (Yahoo spelling),
+  `fred:<ID>`, `basket:<id>`, or `none` with a reason; one primary per asset, any companions. A
+  listed stock or fund defaults to its own ticker. Every curated asset in `themes.yaml` needs a
+  row there (`rt assets seed` refuses otherwise). After editing it: `rt assets seed`,
+  `rt assets check-proxies`, `rt assets export-symbols` (which writes the instrument list into
+  `../market-getdata/instruments/rotation-tracker.txt`; commit it in that repo, nothing else).
+- The viewer must boot with `market_staging` absent or empty: a notice, never a 500. Chart price
+  strips sit under the mention lines on the same x scale with their own y scale (never a second
+  axis on a plot); the price is neutral ink (`--ink`) with a tinted area, because this project's hue sits next
+  to the bearish red. Green and red mean stance and nothing else.
 
 ## Shared platform
 
@@ -116,6 +131,14 @@ tracking, storage or deployment.
   pipeline, `rotation_ro` is for analysis, and the superuser URL is for
   `rt db migrate` only. URLs come from `../nmp-central-ai/.db-urls.env` into `.env`.
   Never add a database service to this repo.
+- **market_staging** (s03) holds only foreign tables over postgres_fdw: server `market`, one user
+  mapping `FOR PUBLIC` as the read-only `market_ro`, `IMPORT FOREIGN SCHEMA staging`. `rt db
+  migrate` drops and re-imports it each run (`market/fdw.py`), with values from `MARKET_FDW_HOST`,
+  `_PORT`, `_DBNAME`, `MARKET_RO_USER`, `_PASSWORD` in `.env`; it skips with a notice when they are
+  unset, when `market` is unreachable or has no `staging` yet. No password goes in a SQL file.
+  `localhost` is the container's own loopback, which pg_hba trusts, so the mapping sets
+  `password_required 'false'` there (superuser-only; it maps to the read-only role). Never write
+  to `market`, and never build anything in `market_staging`: it is re-created by every migrate.
 - **Transcripts** come from Supadata through transcript·lab's
   `index-rag --metadata-json` (1 credit each). Never call its HTTP ingest endpoints
   or `bulk-index` (2–3 credits each), and never write to its Chroma store.
@@ -141,7 +164,8 @@ it, copy it, or write it fresh.
 ```text
 src/rotation_tracker/
   config.py          settings; reads ~/.env then ./.env, exports nothing
-  db.py              connections; `rt db migrate` applies sql/*.sql as the superuser
+  db.py              connections; `rt db migrate` applies sql/*.sql as the superuser, then
+                     imports market_staging over postgres_fdw (market/fdw.py)
   youtube.py         yt-dlp: tab listings, per-video publish time + chapters, cached in .rt/ytdlp/
   pick.py            pick/v1, the weekly pick rule (pure, tested)
   transcript_lab.py  index-rag subprocess + chromadb client on raw_transcripts (ingest, sync)
@@ -153,15 +177,21 @@ src/rotation_tracker/
                      (a week as read), prompt.md + schema.py (play/v1), extract.py (every Claude
                      call), locate.py (the provenance gate), baseline.py (play/v0), run.py
                      (rt mine), gold.py (gold set, second read, spot-checks), evaluate.py
+  market/            s03, prices read from market-getdata: proxies.py (proxies/v2: resolve, seed
+                     rt.asset_proxies, check, the export), components.py (components/v1: a
+                     category's GICS list and his names), fdw.py (market_staging), prices.py (the
+                     viewer's reads of market_staging and the chart's price lines)
   serving/           the viewer's API (`rt serve`): app.py routes, store.py
-                     reads, chroma.py Chroma's SQLite read with mode=ro (no chromadb client), themes.py the chart's keyword themes (themes/v0, not signals), mining.py the miner's reads and the one label write
+                     reads, chroma.py Chroma's SQLite read with mode=ro (no chromadb client), themes.py the chart's keyword themes (themes/v0, not signals; each pinned to an asset from s03), mining.py the miner's reads and the one label write
   cli.py             `rt`
 frontend/            the viewer: React + Vite on the house UI, design lint, vitest
 sql/                 001_rt.sql: schema rt; 002_mining.sql: assets, aliases, runs, mentions,
-                     labels, evals. Idempotent
-assets/              themes.yaml (curated layers, proxies, aliases), extras.yaml (stock
-                     nicknames, mishearings, names that need a ticker cue)
-tests/               pick rule, topic tags, chapter cut, viewer API, the miner (offline)
+                     labels, evals; 003_proxies.sql: rt.asset_proxies. Idempotent
+assets/              themes.yaml (curated layers, aliases), extras.yaml (stock nicknames,
+                     mishearings, names that need a ticker cue), proxies.yaml (proxies/v2: the
+                     series that price each asset), components.yaml (GICS → category)
+tests/               pick rule, topic tags, chapter cut, viewer API, the miner, prices (offline,
+                     a fake market; no Postgres)
 ai_specs/            sNN_*.md specs, the plan of record
 .lavish/             house.css, project.css (hue 15) and fonts from nmp-central-ai;
                      review artifacts
@@ -169,9 +199,15 @@ showcase.yaml        what a portfolio-site build of the viewer may freeze, and w
 .rt/                 caches and seed data, gitignored
 ```
 
-Still to come, per the roadmap: `market/` (prices), `signal/`, `backtest/`, `listener/`.
+Still to come, per the roadmap: the measurement of calls against prices (the branch after s03),
+`signal/`, `backtest/`, `listener/`.
 
 ## Open decisions
+
+- s03: the rotation entry in `../nmp-central-ai/registry/projects.yaml` declaring
+  `extensions: [postgres_fdw]` (provisioned on the platform branch `feat/registry-p12-market`).
+- s03: `rt.assets.proxy` is the primary's bare Yahoo symbol, so it is empty where a FRED series or
+  a basket is the primary (e.g. `rates:us10y`, which was `^TNX`); read `rt.asset_proxies` instead.
 
 - Drawdown threshold, horizons, cost model and holdout date for the backtest.
 - s02: committing the branch and opening its pull request.

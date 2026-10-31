@@ -75,6 +75,15 @@ export function perWrap(v: number): string {
   return v >= 1 || v === 0 ? v.toFixed(1) : v.toFixed(2);
 }
 
+/** A FRED level in its own units: 4.12, 18.6, 237, 6.6M. */
+export function level(v: number): string {
+  const a = Math.abs(v);
+  if (a >= 10000) return compact(v);
+  if (a >= 100) return v.toFixed(0);
+  if (a >= 10) return v.toFixed(1);
+  return v.toFixed(2);
+}
+
 export function year(iso: string): number {
   return Number(iso.slice(0, 4));
 }

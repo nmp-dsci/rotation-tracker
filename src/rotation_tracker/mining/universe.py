@@ -3,7 +3,7 @@
 Four sources, all public and fetched at build time (or read from a local copy):
 
 - ``assets/themes.yaml``: the curated layers (index, GICS sector, theme, crypto, rates, credit,
-  commodity, FX, macro), each with a proxy and aliases;
+  commodity, FX, macro), each with aliases (its price series are in ``assets/proxies.yaml``);
 - Nasdaq Trader's symbol directory: every US-listed ticker, so any stock he names can resolve
   (owner's decision, 28 Oct 2026: no index gate);
 - the S&P 500 constituent list (Wikipedia): membership, date added, GICS sector and
@@ -11,7 +11,9 @@ Four sources, all public and fetched at build time (or read from a local copy):
 - the Nasdaq-100 list (Nasdaq's own API): membership and a company name.
 
 ``assets/extras.yaml`` adds the nicknames, mishearings and ambiguous names by hand. Assets are
-upserted and never deleted (mentions point at them); the alias table is rebuilt each time.
+upserted and never deleted (mentions point at them); the alias table is rebuilt each time. From s03
+the seed also writes ``rt.asset_proxies`` (``market/proxies.py``), and ``rt.assets.proxy`` is the
+primary series' bare Yahoo symbol.
 """
 
 from __future__ import annotations
@@ -30,6 +32,7 @@ from typing import Any
 import yaml
 
 from rotation_tracker.config import ROOT
+from rotation_tracker.market import proxies
 from rotation_tracker.mining.resolve import normalise
 
 ASSETS_VERSION = "assets/v1"
@@ -223,14 +226,20 @@ def build(
     sp500: list[dict[str, Any]],
     ndx: list[dict[str, str]],
     snapshot: date,
+    px: proxies.Proxies | None = None,
 ) -> Built:
+    """``px``: proxies/v2 for a curated row's ``proxy`` (default assets/proxies.yaml); a row that
+    carries its own ``proxy`` keeps it (test fixtures)."""
     b = Built()
     base = {"snapshot": snapshot, "assets_version": ASSETS_VERSION}
     taken: set[str] = set()  # curated aliases: a generated name never overrides one
     for a in cur["assets"]:
+        proxy = (
+            a["proxy"] if "proxy" in a else (px or proxies.load()).legacy(a["id"], a["kind"], None)
+        )
         b.assets.append(
             {**base, "id": a["id"], "kind": a["kind"], "name": a["name"], "ticker": None,
-             "proxy": a.get("proxy"), "source": "themes.yaml"}
+             "proxy": proxy, "source": "themes.yaml"}
         )  # fmt: skip
         for al in a.get("aliases") or []:
             n = normalise(al)
@@ -250,7 +259,7 @@ def build(
             {**base, "id": f"{'fund' if r['etf'] else 'stock'}:{t}",
              "kind": "fund" if r["etf"] else "stock",
              "name": (sp or {}).get("name") or clean_name(r["name"]).title() or t,
-             "ticker": t, "proxy": t.replace(".", "-"), "exchange": r["exchange"],
+             "ticker": t, "proxy": proxies.yahoo_spelling(t), "exchange": r["exchange"],
              "gics_sector": (sp or {}).get("sector"),
              "gics_sub_industry": (sp or {}).get("sub_industry"),
              "sp500": sp is not None, "sp500_added": (sp or {}).get("added"), "ndx": nd is not None,
@@ -338,6 +347,18 @@ def seed(con: Any, local: Path | None = None, log: Callable[[str], None] = print
     except Exception as e:  # risk r10: the list moves; membership is a tag, not a gate
         log(f"  Nasdaq-100 list unavailable ({type(e).__name__}); ndx tags left false")
         ndx = []
-    b = build(curated(), extras(), listed, sp500, ndx, date.today())
+    px = proxies.load()
+    problems = proxies.check_curated(px, curated()["assets"])
+    if problems:
+        raise SystemExit(
+            "assets/proxies.yaml is out of step with themes.yaml:\n  " + "\n  ".join(problems)
+        )
+    b = build(curated(), extras(), listed, sp500, ndx, date.today(), px)
     write(con, b)
+    every = con.execute("SELECT id, kind, ticker FROM rt.assets").fetchall()
+    rows, unresolved = proxies.rows_for(px, every)
+    b.report.update(proxies.write(con, rows))
+    b.report["unpriced_assets"] = len(unresolved)  # neither curated nor a listing: none expected
+    if unresolved:
+        log(f"  no series for {len(unresolved)} asset(s), e.g. {', '.join(unresolved[:5])}")
     return b.report
