@@ -53,6 +53,7 @@ extend-immutable-calls = ["typer.Option", "typer.Argument"]
 strict = true
 python_version = "3.12"
 mypy_path = "src"
+files = ["src", "tests"]
 
 [[tool.mypy.overrides]]
 module = ["yt_dlp.*", "chromadb.*", "mlflow.*"]
