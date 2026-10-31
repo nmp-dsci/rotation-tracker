@@ -111,7 +111,7 @@ changing `assets/proxies.yaml`, `assets/components.yaml`, the fdw or anything th
   `../market-getdata/instruments/rotation-tracker.txt`; commit it in that repo, nothing else).
 - The viewer must boot with `market_staging` absent or empty: a notice, never a 500. Chart price
   strips sit under the mention lines on the same x scale with their own y scale (never a second
-  axis on a plot); the price is `--accent` with a tinted area, because this project's hue sits next
+  axis on a plot); the price is neutral ink (`--ink`) with a tinted area, because this project's hue sits next
   to the bearish red. Green and red mean stance and nothing else.
 
 ## Shared platform

@@ -261,8 +261,8 @@ select{ background:var(--panel); color:var(--ink); border:1px solid var(--line-3
 .spark-key{ display:flex; flex-wrap:wrap; gap:var(--s1) var(--s4); margin-top:var(--s1); font-size:var(--t-2); color:var(--ink-2); }
 .spark-key > span{ display:inline-flex; align-items:center; gap:var(--s1); white-space:nowrap; }
 .spark-swatch{ width:20px; height:8px; overflow:visible; }
-/* s03: the price strip under a row's mention lines: the same x scale, its own y scale. The price is the
-   brand accent and never green or red, which mean a call's stance and nothing else. */
+/* s03: the price strip under a row's mention lines: the same x scale, its own y scale. The price is neutral
+   ink, never green or red, which mean a call's stance and nothing else. */
 .price-strip{ display:block; margin-top:var(--s2); }
 .price-head{ display:flex; justify-content:space-between; align-items:baseline; gap:var(--s2); font-family:var(--mono);
              font-size:var(--t-2); color:var(--muted); line-height:1.3; }
