@@ -22,9 +22,8 @@ app.add_typer(gold_app, name="gold", help="s02: the gold set the miner is measur
 
 @db_app.command("migrate")
 def db_migrate() -> None:
-    """Apply sql/*.sql as the superuser (idempotent)."""
-    for name in db.migrate():
-        typer.echo(f"applied {name}")
+    """Apply sql/*.sql as the superuser (idempotent), then import market_staging over fdw."""
+    db.migrate(log=typer.echo)
 
 
 @db_app.command("smoke")

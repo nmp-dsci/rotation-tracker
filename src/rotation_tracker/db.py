@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 import psycopg
 
-from rotation_tracker.config import ROOT, settings
+from rotation_tracker.config import ROOT, market_env, settings
 
 SQL_DIR = ROOT / "sql"
 
@@ -23,8 +24,13 @@ def connect(readonly: bool = False) -> psycopg.Connection:
     return psycopg.connect(url, autocommit=False)
 
 
-def migrate() -> list[str]:
-    """Apply every ``sql/NNN_*.sql`` file in order as the superuser. Each file is idempotent."""
+def migrate(log: Callable[[str], None] = print) -> list[str]:
+    """Apply every ``sql/NNN_*.sql`` file in order as the superuser (each is idempotent), then
+    import market-getdata's ``staging`` as ``market_staging`` over postgres_fdw (``market.fdw``),
+    which is skipped with a notice when the ``MARKET_*`` variables or the remote schema are absent.
+    """
+    from rotation_tracker.market import fdw
+
     url = settings().admin_database_url
     if not url:
         raise SystemExit("ROTATION_ADMIN_DATABASE_URL is not set (see .db-urls.env).")
@@ -34,4 +40,8 @@ def migrate() -> list[str]:
         for f in files:
             con.execute(f.read_text().encode())
             applied.append(f.name)
+            log(f"applied {f.name}")
+        got = fdw.import_market(con, market_env(), log)
+    if got["tables"] and settings().ro_database_url:
+        log(f"fdw: {fdw.probe(settings().ro_database_url, fdw.LOCAL_SCHEMA, got['tables'])}")
     return applied

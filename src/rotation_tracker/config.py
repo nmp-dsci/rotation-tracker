@@ -23,10 +23,17 @@ def _env() -> dict[str, str]:
     for path in (Path.home() / ".env", ROOT / ".env"):
         if path.exists():
             merged.update({k: v for k, v in dotenv_values(path).items() if v is not None})
-    merged.update({k: v for k, v in os.environ.items() if k.startswith(("RT_", "ROTATION_"))})
+    merged.update(
+        {k: v for k, v in os.environ.items() if k.startswith(("RT_", "ROTATION_", "MARKET_"))}
+    )
     if "MLFLOW_TRACKING_URI" in os.environ:
         merged["MLFLOW_TRACKING_URI"] = os.environ["MLFLOW_TRACKING_URI"]
     return merged
+
+
+def market_env() -> dict[str, str]:
+    """``MARKET_FDW_*`` and ``MARKET_RO_*``: where postgres_fdw finds market-getdata (s03)."""
+    return {k: v for k, v in _env().items() if k.startswith("MARKET_")}
 
 
 def supadata_keys(env: dict[str, str]) -> list[str]:
