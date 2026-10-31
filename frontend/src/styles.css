@@ -273,9 +273,10 @@ select{ background:var(--panel); color:var(--ink); border:1px solid var(--line-3
 .price-plot{ position:relative; display:block; height:36px; margin-top:var(--s1); }
 .price-plot svg{ position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
 .price-plot polyline{ fill:none; stroke-width:2; stroke-linejoin:round; stroke-linecap:round; vector-effect:non-scaling-stroke; }
-.price-plot .px, .spark-swatch .px{ stroke:var(--accent); }
-/* this project's hue sits next to the bearish red, so the price is also an area, not only a line */
-.price-plot .px-area, .spark-swatch .px-area{ fill:var(--accent-soft); stroke:none; }
+/* The price is not a stance, so it wears neutral ink, never green, red or this project's hue (hue 15
+   sits beside the bearish red). Solid and filled, where "all mentions" is dotted. */
+.price-plot .px, .spark-swatch .px{ stroke:var(--ink); }
+.price-plot .px-area, .spark-swatch .px-area{ fill:var(--line); stroke:none; }
 .price-plot .ref, .spark-swatch .ref{ stroke:var(--line-3); stroke-dasharray:3 3; }
 .price-plot .ref, .price-plot .year{ stroke-width:1; vector-effect:non-scaling-stroke; }
 .price-plot .year{ stroke:var(--line); }
