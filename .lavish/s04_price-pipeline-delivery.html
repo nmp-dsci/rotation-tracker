@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prices delivered</title>
+<link rel="stylesheet" href="house.css">
+<link rel="stylesheet" href="project.css">
+<style>
+  /* layout helpers only: every colour is a house token */
+  th{ white-space:nowrap; }
+  table td.n, table th.n{ white-space:nowrap; text-align:right; font-variant-numeric:tabular-nums; }
+  li code, p code{ overflow-wrap:anywhere; }
+  td code{ white-space:nowrap; }
+  .hero-flags{ display:grid; gap:var(--s3); }
+  .hero-flags .callout{ margin:0; }
+  .callout h3{ margin-bottom:var(--s1); }
+  .sym{ font-family:var(--mono); font-size:var(--t-1); color:var(--ink-2); }
+  .shot{ margin:var(--s4) 0 0; border:1px solid var(--line-2); border-radius:var(--r); overflow:hidden; background:var(--panel); }
+  .shot img{ display:block; width:100%; height:auto; }
+  .shot figcaption{ padding:var(--s3) var(--s4); font-size:var(--t-1); color:var(--ink-2); border-top:1px solid var(--line); }
+  .opt{ display:grid; gap:var(--s4); grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); }
+  .opt .card h3{ margin-top:0; }
+  .facts{ display:grid; gap:var(--s2); margin-top:var(--s3); }
+  .facts p{ margin:0; }
+  pre.cmd{ background:var(--panel); border:1px solid var(--line-2); border-radius:var(--r-sm); padding:var(--s3) var(--s4); overflow-x:auto; font-family:var(--mono); font-size:var(--t-1); line-height:1.6; color:var(--ink); margin:var(--s2) 0 var(--s4); }
+  pre.cmd .c{ color:var(--muted); }
+  #themes-priced th:nth-child(3){ min-width:9rem; }
+  #done th:nth-child(2), #done th:last-child{ min-width:16rem; }
+  #limits th:last-child{ min-width:20rem; }
+  #staging-rows th:last-child{ min-width:20rem; }
+  #staging-rows td code{ white-space:normal; }
+  .fig{ overflow-x:auto; }
+  .fig svg{ min-width:720px; }
+  /* figure */
+  .fig svg{ width:100%; display:block; color:var(--ink-2); }
+  .fig svg text{ font-family:var(--sans); fill:currentColor; }
+  .fig svg .node rect{ fill:var(--panel); stroke:var(--line-2); stroke-width:1.5; }
+  .fig svg .node.src rect{ fill:var(--band); }
+  .fig svg .node.store rect{ fill:var(--accent-soft); stroke:var(--accent); }
+  .fig svg .node .t{ font-weight:600; fill:var(--ink); font-size:13px; }
+  .fig svg .node .d{ font-size:11px; fill:var(--muted); }
+  .fig svg .edge{ stroke:var(--line-3); stroke-width:1.5; fill:none; }
+  .fig svg .edge.back{ stroke-dasharray:5 4; }
+  .fig svg .arrowhead{ fill:var(--line-3); }
+  .fig svg .region rect{ fill:none; stroke:var(--line-2); stroke-dasharray:3 4; }
+  .fig svg .region text{ font-size:11px; font-weight:600; fill:var(--muted); letter-spacing:.04em; text-transform:uppercase; }
+  .fig svg .sub{ font-size:11px; fill:var(--muted); }
+  /* status badges: done is the fixed --green, never the accent (hue 15 reads as red here) */
+  .badge.done{ color:var(--green); border-color:var(--green); background:var(--green-soft); }
+  /* the ship form */
+  form.q{ margin:0 0 var(--s4); }
+  form.q label{ display:block; padding:var(--s1) 0; }
+  form.q textarea{ min-height:64px; width:100%; }
+  form.q .row{ display:flex; gap:var(--s3); align-items:center; flex-wrap:wrap; margin-top:var(--s2); }
+</style>
+</head>
+<body>
+<main class="wrap">
+
+<header>
+  <span class="eyebrow">rotation-tracker · delivery s04 · 31 Oct 2026 · built from plan s03</span>
+  <h1>Every asset he talks about now has a price, refreshed every Saturday morning</h1>
+  <p class="lede">The plan you approved is built across three repos and committed locally. A new sibling, <code>market-getdata</code>, loaded 776 series into database <code>market</code>. rotation-tracker reads them over <code>postgres_fdw</code>, and the Chart and Asset pages now draw them. Nothing is pushed: the last section asks how you want it shipped.</p>
+  <div class="cards" style="margin-top:var(--s5)">
+    <div class="stat"><div class="n">99.7%</div><div class="l">of resolved mention rows now join to a loaded price: 23,492 of 23,557. The other 65 are the five deliberate <i>none</i> assets. The plan expected 99.4%.</div></div>
+    <div class="stat"><div class="n">318 / 323</div><div class="l">assets with a mention are priced. Five are <i>none</i> on purpose, each with its reason. Zero are unresolved.</div></div>
+    <div class="stat"><div class="n">776</div><div class="l">series in <code>market</code>: 751 Yahoo symbols (2.59 M daily rows), 18 FRED series, 7 baskets. The plan said about 750.</div></div>
+    <div class="stat"><div class="n">6 min</div><div class="l">for the full backfill. A weekly run with nothing new takes about one minute, most of it the dbt rebuild.</div></div>
+    <div class="stat"><div class="n">Sat 09:00</div><div class="l">Sydney, by launchd. Your cadence choice. Proven once through launchd today; the first scheduled run is Saturday 7 November.</div></div>
+  </div>
+</header>
+
+<section id="flags">
+  <span class="eyebrow">Read these first</span>
+  <h2>Where the build differs from the plan, and why</h2>
+  <div class="hero-flags">
+    <div class="callout" id="flag-colour">
+      <h3>The price line is neutral ink, not the accent</h3>
+      <p>The plan said price lines would use <code>--accent</code>. At this project's provisional hue the accent is a salmon red, and in the Chart legend "price" and "bearish" looked the same. The price is not a stance, so it is now solid ink with a faint fill. "All mentions" stays dotted, bullish green, bearish red.</p>
+    </div>
+    <div class="callout warn" id="flag-baskets">
+      <h3>A basket starts when its first member does, which is too early for Mag 7</h3>
+      <p>The rule you approved rebases a basket to 100 on the first day <i>any</i> member has a price. So <code>basket:mag7</code> runs from 1980 on Apple alone, and <code>basket:hardware</code> from 1962 on HP. The Chart shows 2023 onwards, where every member trades, so nothing visible is wrong. The measurement branch needs a minimum-members rule before it looks further back. Question 2 below.</p>
+    </div>
+    <div class="callout" id="flag-small">
+      <h3>Smaller departures, each deliberate</h3>
+      <p><b>Constituent fetchers copied, not moved.</b> rotation-tracker's <code>universe.py</code> still builds assets/v1; market-getdata has its own copy. <b><code>proxy:</code> left <code>themes.yaml</code>.</b> <code>assets/proxies.yaml</code> is now the one source, and <code>rt.assets.proxy</code> holds the primary's bare Yahoo symbol, so it is empty where the primary is FRED or a basket. <b>Two spread assets added</b>, <code>rates:10y3m</code> and <code>rates:2s10s</code>; 11 unknown rows now resolve to them. <b>FRED vintages store changes only</b>, not a full copy per week. <b>Yahoo's "close" is split-adjusted</b>; Yahoo has no truly unadjusted close, which the docs say. <b>The fdw mapping skips the password check on loopback</b>: inside the shared container, localhost is trusted, and Postgres refuses a non-superuser mapping otherwise. It maps only to the read-only <code>market_ro</code>.</p>
+    </div>
+  </div>
+</section>
+
+<section id="see">
+  <span class="eyebrow">What you will see</span>
+  <h2>A price strip under every Chart row, and what is inside each category</h2>
+  <p class="sub">Both screenshots are the live viewer on port 8089, restarted on the new build at 13:54 today.</p>
+  <figure class="shot" id="shot-chart">
+    <img src="s04_shots/chart-price-strips.png" alt="The Chart's top three keyword themes. Each row has its mention lines on top and, below them on the same x axis, a price strip: DGS10 3.48 to 4.98 for Bonds and yields, SMH 100 to 402 for Semiconductors, GLD 100 to 194 for Gold and silver.">
+    <figcaption><b>Chart.</b> Each row keeps its mention lines and gains a strip below, on the same quarters with its own y scale. Yahoo series and baskets start at 100 in Q1 2023 and are drawn dashed at 100. FRED series show their own level, here the 10-year yield from 3.48 to 4.98. All 18 keyword themes and 300 of the 302 mined-asset rows have a strip. The other two are <i>none</i> assets, and their rows say why.</figcaption>
+  </figure>
+  <figure class="shot" id="shot-asset">
+    <img src="s04_shots/asset-software.png" alt="The Software asset page: priced by IGV since 2001 with XSW since 2011, the mention totals, the week-by-week strip, and a Components panel listing 21 names with MSFT 44, PLTR 24, ORCL 20, ADBE 6, CRWD 3 and CRM 2 first.">
+    <figcaption><b>Asset page.</b> A "Priced by" line names the primary series and its companions with their first dates. The new Components panel lists the GICS members, his names first by mention count with a border, and notes that issuer holdings come in phase 2. The Assets list also gained a "Priced by" column.</figcaption>
+  </figure>
+</section>
+
+<section id="flow">
+  <span class="eyebrow">How it runs</span>
+  <h2>One weekly loop, two databases, one join</h2>
+  <div class="fig" id="fig-flow">
+    <svg viewBox="0 0 1000 420" role="img" aria-labelledby="fig-flow-t">
+      <title id="fig-flow-t">launchd starts market-getdata every Saturday at 09:00. It fetches Yahoo, FRED and the index lists, writes partitions with manifests, copies changed partitions into raw, builds nine staging tables with dbt, and audits. rotation-tracker reads staging over postgres_fdw, joins it to rt.asset_proxies, and draws the Chart and Asset pages. rotation-tracker's export-symbols writes the list of series market-getdata fetches.</title>
+      <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+      <g class="region" id="rg-sched"><rect x="10" y="50" width="190" height="340" rx="8"/><text x="22" y="72">schedule · sources</text></g>
+      <g class="region" id="rg-market"><rect x="220" y="50" width="400" height="340" rx="8"/><text x="232" y="72">market-getdata</text></g>
+      <g class="region" id="rg-rotation"><rect x="640" y="50" width="350" height="340" rx="8"/><text x="652" y="72">rotation-tracker</text></g>
+
+      <g class="node" id="n-launchd"><title>~/Library/LaunchAgents/com.nmp-dsci.market-update.plist runs scripts/update.sh on Saturdays at 09:00 local time and logs to ~/.market/update.log</title><rect x="25" y="95" width="160" height="60" rx="6"/><text class="t" x="35" y="120">launchd</text><text class="d" x="35" y="140">Sat 09:00 Sydney</text></g>
+      <g class="node src" id="n-src"><title>Yahoo Finance through yfinance, FRED's keyless CSV, and the S&amp;P 500 and Nasdaq-100 lists</title><rect x="25" y="215" width="160" height="76" rx="6"/><text class="t" x="35" y="240">Yahoo · FRED</text><text class="d" x="35" y="260">751 symbols, 18 series</text><text class="d" x="35" y="278">+ two index lists</text></g>
+
+      <g class="node" id="n-fetch"><title>Per-symbol, per-year CSV partitions under data/normalized with sha256 manifests; data/ is gitignored</title><rect x="235" y="95" width="170" height="76" rx="6"/><text class="t" x="245" y="120">fetch + transform</text><text class="d" x="245" y="140">partitions + sha256</text><text class="d" x="245" y="158">manifests, gitignored</text></g>
+      <g class="node store" id="n-raw"><title>raw schema: only partitions whose sha256 changed are copied; market_ro cannot read raw</title><rect x="235" y="215" width="170" height="76" rx="6"/><text class="t" x="245" y="240">raw</text><text class="d" x="245" y="260">changed partitions only</text><text class="d" x="245" y="278">never read by consumers</text></g>
+      <g class="node store" id="n-stg"><title>staging: instruments, prices_daily, actions, series_daily, series_vintages, baskets, basket_prices_daily, constituents, series_values; 56 dbt tests</title><rect x="430" y="95" width="175" height="110" rx="6"/><text class="t" x="440" y="120">staging · 9 tables</text><text class="d" x="440" y="140">dbt build, 56 tests</text><text class="d" x="440" y="158">series_values 2.78 M</text><text class="d" x="440" y="176">read by market_ro</text></g>
+      <g class="node" id="n-audit"><title>market-getdata audit: stale symbols, FRED series that did not advance, basket members missing, failed fetches; written to meta.pipeline_runs</title><rect x="430" y="235" width="175" height="56" rx="6"/><text class="t" x="440" y="260">audit</text><text class="d" x="440" y="278">clean on 31 Oct</text></g>
+
+      <g class="node" id="n-prox"><title>assets/proxies.yaml (proxies/v2) seeded into rt.asset_proxies: one primary per asset plus companions</title><rect x="655" y="95" width="320" height="60" rx="6"/><text class="t" x="665" y="120">proxies.yaml → rt.asset_proxies</text><text class="d" x="665" y="140">323 mentioned: 318 priced, 5 none</text></g>
+      <g class="node store" id="n-fdw"><title>rt db migrate imports market's staging as market_staging, nine foreign tables, read as market_ro</title><rect x="655" y="190" width="320" height="60" rx="6"/><text class="t" x="665" y="215">market_staging (postgres_fdw)</text><text class="d" x="665" y="235">9 foreign tables, joined in SQL</text></g>
+      <g class="node" id="n-view"><title>/api/chart and /api/assets/{id} read market_staging through the store; the viewer still boots when market is absent</title><rect x="655" y="285" width="320" height="60" rx="6"/><text class="t" x="665" y="310">Chart and Asset pages</text><text class="d" x="665" y="330">price strip · priced by · components</text></g>
+
+      <path class="edge" d="M185,125 C210,125 210,133 235,133" marker-end="url(#ah)"/>
+      <path class="edge" d="M185,253 C210,253 210,150 235,150" marker-end="url(#ah)"/>
+      <path class="edge" d="M320,171 L320,215" marker-end="url(#ah)"/>
+      <path class="edge" d="M405,253 C418,253 418,180 430,180" marker-end="url(#ah)"/>
+      <path class="edge" d="M517,205 L517,235" marker-end="url(#ah)"/>
+      <path class="edge" d="M605,150 C630,150 630,220 655,220" marker-end="url(#ah)"/>
+      <path class="edge" d="M815,155 L815,190" marker-end="url(#ah)"/>
+      <path class="edge" d="M815,250 L815,285" marker-end="url(#ah)"/>
+      <path class="edge back" id="e-export" d="M935,95 C935,22 385,22 385,95" marker-end="url(#ah)"><title>rt assets export-symbols writes market-getdata/instruments/rotation-tracker.txt, committed there, so the feed never imports tracker code</title></path>
+      <text class="sub" x="660" y="16" text-anchor="middle">rt assets export-symbols → instruments/rotation-tracker.txt · 326 series</text>
+      <text class="sub" x="232" y="410">full backfill 6 min · a quiet week ≈ 1 min</text>
+      <text class="sub" x="652" y="410">rotation never fetches a price</text>
+    </svg>
+  </div>
+</section>
+
+<section id="landed">
+  <span class="eyebrow">What landed</span>
+  <h2>The 18 Chart themes and the series under each</h2>
+  <p class="sub">From <code>/api/chart?view=themes</code> on the live viewer. "Q1 2023 → now" is the strip's first and last point. Performance series start at 100; the 10-year yield is shown in percent.</p>
+  <div class="tablewrap">
+    <table id="themes-priced">
+      <thead><tr><th>Chart theme</th><th>Asset</th><th>Series</th><th>Drawn as</th><th class="n">History from</th><th class="n">Q1 2023 → now</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Bonds &amp; yields</td><td><code>rates:us10y</code></td><td class="sym">fred:DGS10</td><td>level</td><td class="n">1962-01-02</td><td class="n">3.48 → 4.98</td></tr>
+        <tr><td class="k">Semiconductors</td><td><code>theme:semis</code></td><td class="sym">yahoo:SMH</td><td>performance</td><td class="n">2000-06-05</td><td class="n">100 → 402</td></tr>
+        <tr><td class="k">Gold &amp; silver</td><td><code>commodity:gold</code></td><td class="sym">yahoo:GLD</td><td>performance</td><td class="n">2004-11-18</td><td class="n">100 → 194</td></tr>
+        <tr><td class="k">Energy &amp; oil</td><td><code>sector:energy</code></td><td class="sym">yahoo:XLE</td><td>performance</td><td class="n">1998-12-22</td><td class="n">100 → 189</td></tr>
+        <tr><td class="k">Banks &amp; financials</td><td><code>theme:banks</code></td><td class="sym">yahoo:KBE</td><td>performance</td><td class="n">2005-11-15</td><td class="n">100 → 195</td></tr>
+        <tr><td class="k">Crypto</td><td><code>crypto:btc</code></td><td class="sym">yahoo:BTC-USD</td><td>performance</td><td class="n">2014-09-17</td><td class="n">100 → 271</td></tr>
+        <tr><td class="k">AI</td><td><code>theme:ai</code></td><td class="sym">yahoo:AIQ</td><td>performance</td><td class="n">2018-05-16</td><td class="n">100 → 246</td></tr>
+        <tr><td class="k">Consumer</td><td><code>sector:discretionary</code></td><td class="sym">yahoo:XLY</td><td>performance</td><td class="n">1998-12-22</td><td class="n">100 → 159</td></tr>
+        <tr><td class="k">Software &amp; SaaS</td><td><code>theme:software</code></td><td class="sym">yahoo:IGV</td><td>performance</td><td class="n">2001-07-17</td><td class="n">100 → 171</td></tr>
+        <tr><td class="k">The dollar</td><td><code>fx:dxy</code></td><td class="sym">yahoo:DX-Y.NYB</td><td>performance</td><td class="n">1971-01-04</td><td class="n">100 → 99</td></tr>
+        <tr><td class="k">Healthcare</td><td><code>sector:healthcare</code></td><td class="sym">yahoo:XLV</td><td>performance</td><td class="n">1998-12-22</td><td class="n">100 → 151</td></tr>
+        <tr><td class="k">Big tech</td><td><code>theme:mag7</code></td><td class="sym">basket:mag7</td><td>performance</td><td class="n">1980-12-12 <span class="badge warn">see flag</span></td><td class="n">100 → 306</td></tr>
+        <tr><td class="k">China</td><td><code>theme:china-stocks</code></td><td class="sym">yahoo:FXI</td><td>performance</td><td class="n">2004-10-08</td><td class="n">100 → 122</td></tr>
+        <tr><td class="k">Defensives</td><td><code>theme:defensives</code></td><td class="sym">basket:defensives</td><td>performance</td><td class="n">1998-12-22</td><td class="n">100 → 143</td></tr>
+        <tr><td class="k">Utilities</td><td><code>sector:utilities</code></td><td class="sym">yahoo:XLU</td><td>performance</td><td class="n">1998-12-22</td><td class="n">100 → 143</td></tr>
+        <tr><td class="k">Small caps</td><td><code>index:rut</code></td><td class="sym">yahoo:IWM</td><td>performance</td><td class="n">2000-05-26</td><td class="n">100 → 163</td></tr>
+        <tr><td class="k">Industrials</td><td><code>sector:industrials</code></td><td class="sym">yahoo:XLI</td><td>performance</td><td class="n">1998-12-22</td><td class="n">100 → 174</td></tr>
+        <tr><td class="k">Real estate</td><td><code>sector:real-estate</code></td><td class="sym">yahoo:XLRE</td><td>performance</td><td class="n">2015-10-08</td><td class="n">100 → 130</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 style="margin-top:var(--s6)">What is in database <code>market</code></h3>
+  <div class="tablewrap">
+    <table id="staging-rows">
+      <thead><tr><th>staging table</th><th class="n">Rows</th><th>What it holds</th></tr></thead>
+      <tbody>
+        <tr><td class="k"><code>series_values</code></td><td class="n">2,780,748</td><td>The one table a chart needs: every series key by date. Yahoo gives adjusted close, FRED its value, baskets their index.</td></tr>
+        <tr><td class="k"><code>prices_daily</code></td><td class="n">2,587,828</td><td>751 Yahoo symbols, open to volume, both closes. 530 stocks from 2015; everything else from its first date.</td></tr>
+        <tr><td class="k"><code>series_vintages</code> · <code>series_daily</code></td><td class="n">137,101</td><td>18 FRED series. The first vintage today, so the two tables match; they diverge as FRED revises.</td></tr>
+        <tr><td class="k"><code>basket_prices_daily</code></td><td class="n">55,819</td><td>7 baskets, equal weight, monthly rebalance, through adjusted close, rebased to 100.</td></tr>
+        <tr><td class="k"><code>actions</code></td><td class="n">28,865</td><td>Dividends and splits. A new action makes that symbol refetch its full history, so adjusted closes never go stale.</td></tr>
+        <tr><td class="k"><code>instruments</code></td><td class="n">776</td><td>One row per series: source, type, first and last date, the reasons it is fetched, and its history start.</td></tr>
+        <tr><td class="k"><code>constituents</code></td><td class="n">604</td><td>Today's S&amp;P 500 and Nasdaq-100 snapshot with GICS. Written again only when the list changes.</td></tr>
+        <tr><td class="k"><code>baskets</code></td><td class="n">34</td><td>Members of the seven baskets.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small">The reasons overlap: 518 series are constituents, 218 he names, 104 are proxies, 39 companions, 32 basket members. The database is 1.2 GB with raw, about four times the plan's estimate, and <code>data/</code> on disk is 302 MB. Both are outside git.</p>
+</section>
+
+<section id="repos">
+  <span class="eyebrow">Where the work is</span>
+  <h2>Three repos, committed locally, nothing pushed</h2>
+  <div class="opt">
+    <div class="card" id="repo-rt">
+      <h3>rotation-tracker · branch <code>prices</code></h3>
+      <p>Seven commits on top of <code>main</code>: the spec and plan page, proxies/v2 and <code>rt.asset_proxies</code>, the fdw import, the viewer's price strips and components, docs, and the colour fix.</p>
+      <div class="facts">
+        <p class="small"><b>New commands.</b> <code>rt assets seed</code>, <code>export-symbols</code>, <code>components &lt;id&gt;</code>, <code>check-proxies</code>; <code>rt db migrate</code> now imports <code>market_staging</code>.</p>
+        <p class="small"><b>Checks re-run by me.</b> 167 pytest, ruff, format, mypy strict on src and tests; frontend typecheck, 27 vitest, design lint. All green.</p>
+      </div>
+    </div>
+    <div class="card" id="repo-market">
+      <h3>market-getdata · <code>main</code>, new repo</h3>
+      <p>Eight commits: the propertyiq_getdata setup piece for piece, the Yahoo, FRED and constituents sources, the manifest loader and dbt staging, CLI and audit, launchd scripts, a synthetic consumer fixture, docs, and the instruments file.</p>
+      <div class="facts">
+        <p class="small"><b>Checks re-run by me.</b> 82 offline pytest (6 live tests deselected), ruff, format, mypy strict; dbt 9 models and 56 tests green in the backfill and the launchd run.</p>
+        <p class="small"><b>Public-safe.</b> No price file is tracked. The one committed fixture is labelled synthetic: seeded random walks.</p>
+      </div>
+    </div>
+    <div class="card" id="repo-platform">
+      <h3>nmp-central-ai · branch <code>feat/registry-p12-market</code></h3>
+      <p>One commit in a sibling worktree, <code>../nmp-central-ai-market</code>. The main checkout is untouched. It adds P12 market-getdata and declares <code>postgres_fdw</code> on rotation's database.</p>
+      <div class="facts">
+        <p class="small"><b>Applied.</b> <code>make db-init</code> ran from that worktree. It created <code>market</code>, <code>market_owner</code> and <code>market_ro</code>, added the extension, and restarted DbGate to show the new connection.</p>
+        <p class="small"><b>Checks.</b> <code>make check ARGS="--only P12"</code> passes; P11 passes with <code>ext=postgres_fdw</code>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="done">
+  <span class="eyebrow">Against the plan</span>
+  <h2>Each build step's done-when, checked</h2>
+  <div class="tablewrap">
+    <table id="done">
+      <thead><tr><th>Step</th><th>Done when</th><th>Status</th><th>Evidence</th></tr></thead>
+      <tbody>
+        <tr><td class="k">1 · Decide</td><td>Answers back, page shows them</td><td><span class="badge done">done</span></td><td>All six queued in the review; recorded in <code>ai_specs/s03_prices.md</code>.</td></tr>
+        <tr><td class="k">2 · proxies/v2</td><td>Every mentioned asset resolves to a series or a reasoned none; export ≈ 750</td><td><span class="badge done">done</span></td><td><code>check-proxies</code>: 323 assets, 318 priced, 5 none, 0 unresolved. Export 326 series; with the 518 constituents that is 776, not 750.</td></tr>
+        <tr><td class="k">3 · Scaffold</td><td><code>make check ARGS="--only P12"</code> passes</td><td><span class="badge done">done</span></td><td>PASS, 2 roles, smoke 0.</td></tr>
+        <tr><td class="k">4 · Yahoo</td><td>Backfill lands; counts match manifests; first dates match the probe</td><td><span class="badge done">done</span></td><td>751 of 751 symbols, 10,527 partitions loaded, dbt green. SMH 2000, IGV 2001, AIQ 2018, XLRE 2015 match the 30 Oct probe.</td></tr>
+        <tr><td class="k">5 · FRED</td><td>Every series present, recent</td><td><span class="badge done">done</span></td><td>18 of 18. Daily ones end 29 to 30 Oct; four monthly ones lag by design.</td></tr>
+        <tr><td class="k">6 · Baskets, constituents</td><td>Each basket back to its earliest member; one month reproduced by hand</td><td><span class="badge done">done</span></td><td>dbt singular test <code>assert_basket_month_by_hand</code>; values match a pandas reference to 1e-9. Early-years caveat in the flag above.</td></tr>
+        <tr><td class="k">7 · Schedule, audit</td><td>Two consecutive runs land unattended, audit clean</td><td><span class="badge warn">1 of 2</span></td><td>Installed. One launchd-triggered run today: exit 0, nothing new, audit clean. With weekly cadence the second proof is Saturday 7 Nov.</td></tr>
+        <tr><td class="k">8 · fdw, viewer</td><td>Every Chart row has a price line; design lint passes; viewer boots without market</td><td><span class="badge done">done</span></td><td>18 of 18 keyword rows, 300 of 302 asset rows (2 are none). Lint clean. Absence tested with the empty database before the backfill.</td></tr>
+        <tr><td class="k">9 · Docs, PRs</td><td>Docs in both repos; <code>/no-mistakes</code>; PRs</td><td><span class="badge warn">docs only</span></td><td>AGENTS.md and README in both repos, the spec, this page. Push and PRs wait for your answer below.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="run">
+  <span class="eyebrow">Run it yourself</span>
+  <h2>The commands that matter</h2>
+  <pre class="cmd"><span class="c"># run the weekly job now, exactly as launchd does</span>
+launchctl kickstart -k gui/$(id -u)/com.nmp-dsci.market-update
+tail -f ~/.market/update.log
+
+<span class="c"># or by hand, from market-getdata</span>
+scripts/update.sh
+uv run --extra db --env-file .env market-getdata audit
+
+<span class="c"># stop the schedule</span>
+scripts/install-launchd.sh --uninstall
+
+<span class="c"># rotation-tracker: re-import after market adds a table; inspect a category</span>
+uv run rt db migrate
+uv run rt assets components theme:software
+uv run rt assets check-proxies</pre>
+  <div class="tablewrap">
+    <table id="limits">
+      <thead><tr><th>Watch for</th><th>What happens</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Docker asleep on Saturday</td><td>The job runs on this Mac. If the platform stack is down at 09:00, the load fails and the log says so. launchd runs a missed job once when the Mac wakes; Docker must be up by then.</td></tr>
+        <tr><td class="k">Yahoo throttling</td><td>The backfill was not throttled. The fetcher backs off and records per-symbol failures, which the audit lists.</td></tr>
+        <tr><td class="k">Survivorship</td><td>Constituents and <code>basket:hardware</code> use today's lists. Dated history of index changes is phase 2.</td></tr>
+        <tr><td class="k">A new staging table</td><td>Re-run <code>rt db migrate</code> in rotation-tracker so the fdw imports it.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="next">
+  <span class="eyebrow">Your call</span>
+  <h2>Two decisions before this ships</h2>
+  <div class="cards">
+    <form class="q card" data-lavish-question="ship" onsubmit="event.preventDefault(); const f=new FormData(event.currentTarget); const c=f.get('ship'); if(!c) return; window.lavish.queuePrompt('Ship decision: '+c+'. Notes: '+(f.get('note')||'none'), {tag:'choice', text:'Ship: '+c, element:event.currentTarget, data:{question:'ship', answer:c, note:f.get('note')}});">
+      <h3>1 · How to ship it</h3>
+      <label><input type="radio" name="ship" value="create the public GitHub repo nmp-dsci/market-getdata and push it; open PRs for rotation-tracker prices and nmp-central-ai feat/registry-p12-market through /no-mistakes" checked> Create the public repo, push, open all PRs through <code>/no-mistakes</code> <span class="badge rec">recommended</span></label>
+      <label><input type="radio" name="ship" value="open PRs for rotation-tracker and nmp-central-ai only; keep market-getdata local for now"> PRs for rotation-tracker and nmp-central-ai; keep market-getdata local</label>
+      <label><input type="radio" name="ship" value="hold: I will review the local commits first"> Hold, I'll review the commits first</label>
+      <div class="row"><textarea name="note" placeholder="Repo name, private instead of public, or anything to change first"></textarea><button type="submit" class="btn">Queue this answer</button></div>
+    </form>
+    <form class="q card" data-lavish-question="basket-min" onsubmit="event.preventDefault(); const f=new FormData(event.currentTarget); const c=f.get('basket'); if(!c) return; window.lavish.queuePrompt('Basket start decision: '+c+'. Notes: '+(f.get('note')||'none'), {tag:'choice', text:'Baskets: '+c, element:event.currentTarget, data:{question:'basket-min', answer:c, note:f.get('note')}});">
+      <h3>2 · When a basket starts</h3>
+      <label><input type="radio" name="basket" value="add a min_members rule to baskets.yaml now: a basket starts when at least half its members trade (mag7 from 2012, hardware later), before shipping" checked> Add a minimum-members rule now, so Mag 7 starts in 2012 <span class="badge rec">recommended</span></label>
+      <label><input type="radio" name="basket" value="leave the rule as approved and handle it in the measurement branch"> Leave it; the measurement branch handles it</label>
+      <div class="row"><textarea name="note" placeholder="A different threshold, or all members required"></textarea><button type="submit" class="btn">Queue this answer</button></div>
+    </form>
+  </div>
+  <p class="small">Next after shipping: the measurement branch. It scores forward returns at 1, 4, 13, 26 and 52 weeks from the Monday open after each wrap, against SPY, and checks rotation in and out against price. Still waiting from earlier: <code>make install-house-ui</code> for the projects behind the house canon.</p>
+</section>
+
+<footer style="margin-top:var(--s8)">
+  <p class="small">Sources, all 31 Oct 2026: database <code>market</code> (staging row counts, instruments, the backfill log and the launchd run log under <code>~/.market/</code>); database <code>rotation</code> (<code>rt.mention_assets</code>, <code>rt.asset_proxies</code>, <code>market_staging.*</code> joined as <code>rotation_ro</code>); the live viewer's <code>/api/chart</code> and <code>/api/assets/theme:software</code>; <code>make check ARGS="--only P12"</code> and <code>make db-check ARGS="--only P11"</code> from the platform worktree; pytest, ruff, mypy and the frontend checks re-run in both repos after the agents finished. Plan: <code>s03_price-pipeline-plan.html</code>. Spec: <code>ai_specs/s03_prices.md</code>.</p>
+</footer>
+
+</main>
+</body>
+</html>
