@@ -19,6 +19,7 @@ Plan reviewed in `.lavish/s03_price-pipeline-plan.html` (31 Oct 2026). Delivery 
 | Fills | The 23 unpriced assets filled as proposed: `yahoo:`, `fred:` and `basket:` series, five explicit `none` (tariffs, geopolitics, earnings, debt, stablecoins) |
 | Cadence | **Weekly, Saturday 09:00 Sydney** (owner's choice over the daily recommendation), launchd on the owner's Mac. The US Friday close is in by 07:00–08:00 Sydney; the wrap itself publishes on Sunday afternoon Sydney time, so the week it discusses is already loaded. Constituents refresh in the same run |
 | Components | GICS sub-industry plus the names he says, now; issuer ETF holdings in phase 2 |
+| Basket start (delivery review) | A basket starts once `min_members` of its members trade, default half rounded up, before shipping. The approved "first day any member trades" rule had `mag7` running from 1980 on Apple alone. The review page promised Mag 7 from 2012, which half of seven (four, so 1999) does not give, so `mag7` sets `min_members: 7` |
 
 ## The contract between the two repos
 
@@ -88,14 +89,17 @@ bare Yahoo symbol for compatibility.
 
 ## Baskets
 
-Equal weight, rebalanced monthly, total return through `adj_close`, rebased to 100 on the first
-day any member has a price. A member joins at the first month start after its history begins.
+Equal weight, rebalanced monthly, total return through `adj_close`. A basket starts once
+`min_members` of its members have a price (default half, rounded up, capped at the members with
+any price) and is rebased to 100 that day. Members priced by then are in from the start; a later
+member joins at the first month start after its history begins. Resulting starts: `mag7`
+18 May 2012 (all seven), `hardware` 11 Dec 2002, the rest unchanged.
 
 | Basket | Members |
 |---|---|
 | `defensives` | XLP, XLU, XLV |
 | `cyclicals` | XLI, XLB, XLY, XLF, XLE |
-| `mag7` | AAPL, MSFT, GOOGL, AMZN, META, NVDA, TSLA |
+| `mag7` | AAPL, MSFT, GOOGL, AMZN, META, NVDA, TSLA (`min_members: 7`) |
 | `crypto` | BTC-USD, ETH-USD |
 | `alts` | ETH-USD, SOL-USD, XRP-USD, ADA-USD, DOGE-USD |
 | `hardware` | today's S&P 500 members in GICS "Technology Hardware, Storage & Peripherals" (survivorship noted) |
