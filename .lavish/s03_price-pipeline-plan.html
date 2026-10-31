@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rotation tracker prices</title>
+<link rel="stylesheet" href="house.css">
+<link rel="stylesheet" href="project.css">
+<style>
+  /* layout helpers only: every colour is a house token */
+  th{ white-space:nowrap; }
+  table td.n, table th.n{ white-space:nowrap; text-align:right; font-variant-numeric:tabular-nums; }
+  table td.bar{ min-width:110px; }
+  li code, p code{ overflow-wrap:anywhere; }
+  td code{ white-space:nowrap; }
+  #by-kind th:nth-child(6), #by-kind th:nth-child(7), #fills th:nth-child(3), #fills th:last-child, #comp-sources th:nth-child(2), #comp-sources th:nth-child(3), #tables th:nth-child(3), #tables th:last-child, #risk-table th{ min-width:14rem; }
+  .meter{ height:10px; background:var(--band); border:1px solid var(--line-2); border-radius:999px; overflow:hidden; min-width:90px; }
+  .meter > i{ display:block; height:100%; background:var(--accent); border-radius:999px; }
+  .meter.dim > i{ background:var(--line-3); }
+  .meter.ok > i{ background:var(--green); }
+  .hero-flags{ display:grid; gap:var(--s3); }
+  .hero-flags .callout{ margin:0; }
+  .callout h3{ margin-bottom:var(--s1); }
+  .stack{ display:grid; gap:var(--s4); }
+  .cols2{ columns:2 260px; column-gap:var(--s5); }
+  .cols2 li{ break-inside:avoid; }
+  .sym{ font-family:var(--mono); font-size:var(--t-1); color:var(--ink-2); }
+  .new{ color:var(--accent); }
+  .ok{ color:var(--green); }
+  .bull{ color:var(--green); } .bear{ color:var(--red); }
+  /* figures */
+  .fig svg{ width:100%; display:block; color:var(--ink-2); }
+  .fig svg text{ font-family:var(--sans); fill:currentColor; }
+  .fig svg .mono{ font-family:var(--mono); }
+  .fig svg .muted{ fill:var(--muted); }
+  .fig svg .lbl{ font-size:12px; font-weight:600; fill:var(--ink); }
+  .fig svg .sub{ font-size:11px; fill:var(--muted); }
+  .fig svg .node rect{ fill:var(--panel); stroke:var(--line-2); stroke-width:1.5; }
+  .fig svg .node.src rect{ fill:var(--band); }
+  .fig svg .node.store rect{ fill:var(--accent-soft); stroke:var(--accent); }
+  .fig svg .node.next rect{ fill:none; stroke:var(--line-3); stroke-dasharray:5 4; }
+  .fig svg .node .t{ font-weight:600; fill:var(--ink); font-size:13px; }
+  .fig svg .node .d{ font-size:11px; fill:var(--muted); }
+  .fig svg .edge{ stroke:var(--line-3); stroke-width:1.5; fill:none; }
+  .fig svg .edge.next{ stroke-dasharray:5 4; }
+  .fig svg .arrowhead{ fill:var(--line-3); }
+  .fig svg .region rect{ fill:none; stroke:var(--line-2); stroke-dasharray:3 4; }
+  .fig svg .region text{ font-size:11px; font-weight:600; fill:var(--muted); letter-spacing:.04em; text-transform:uppercase; }
+  /* the viewer mock, in the viewer's own vocabulary */
+  .mock{ border:1px solid var(--line-2); border-radius:var(--r); background:var(--panel); padding:var(--s4); overflow-x:auto; }
+  .mock .hdr{ display:flex; justify-content:space-between; gap:var(--s3); align-items:baseline; flex-wrap:wrap; margin-bottom:var(--s3); }
+  .mock .row{ display:grid; grid-template-columns:3rem minmax(11rem,1fr) minmax(0,2.4fr) 5rem; gap:var(--s3); align-items:center; padding:var(--s2) 0; border-top:1px solid var(--line); min-width:560px; }
+  .mock .row.head{ border-top:0; font-size:var(--t-2); color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .mock .rank{ font-family:var(--mono); color:var(--ink-2); }
+  .mock .nm b{ display:block; }
+  .mock .nm .sym{ display:block; }
+  .mock .sparks{ display:grid; gap:4px; min-width:0; }
+  .mock .spark{ position:relative; height:38px; border-bottom:1px solid var(--line); }
+  .mock .spark svg{ width:100%; height:100%; display:block; overflow:visible; }
+  .mock .spark polyline{ fill:none; stroke-width:1.6; vector-effect:non-scaling-stroke; }
+  .mock .spark .all{ stroke:var(--ink-2); stroke-dasharray:0 5; stroke-linecap:round; stroke-width:2.2; }
+  .mock .spark .up{ stroke:var(--green); }
+  .mock .spark .down{ stroke:var(--red); }
+  .mock .spark .px{ stroke:var(--accent); }
+  .mock .spark .ref{ stroke:var(--line-3); stroke-dasharray:3 3; }
+  .mock .spark .yr{ stroke:var(--line-2); stroke-width:1; }
+  .mock .spark .lab{ position:absolute; right:0; top:0; font-size:var(--t-2); color:var(--muted); background:var(--panel); padding:0 2px; }
+  .mock .cnt{ text-align:right; font-variant-numeric:tabular-nums; }
+  .mock .axis{ display:flex; justify-content:space-between; font-size:var(--t-2); color:var(--muted); font-family:var(--mono); margin-top:2px; }
+  .mock .key{ display:flex; gap:var(--s4); flex-wrap:wrap; font-size:var(--t-1); color:var(--muted); margin-top:var(--s3); }
+  .mock .key i{ display:inline-block; width:18px; height:0; border-top:2px solid var(--ink-2); vertical-align:middle; margin-right:6px; }
+  .mock .key i.dot{ border-top-style:dotted; border-top-width:3px; }
+  .mock .key i.up{ border-color:var(--green); } .mock .key i.down{ border-color:var(--red); } .mock .key i.px{ border-color:var(--accent); } .mock .key i.ref{ border-color:var(--line-3); border-top-style:dashed; }
+  .mock .comps{ margin-top:var(--s3); padding-top:var(--s3); border-top:1px solid var(--line); }
+  .mock .comps .chips{ margin-top:var(--s2); }
+  .chip .sym{ color:inherit; }
+  .chip .n{ font-variant-numeric:tabular-nums; color:var(--muted); margin-left:4px; }
+  .chip.said{ border-color:var(--accent); }
+  /* decision forms */
+  form.q{ margin:0 0 var(--s4); }
+  form.q label{ display:block; padding:var(--s1) 0; }
+  form.q textarea{ min-height:64px; width:100%; }
+  form.q .row{ display:flex; gap:var(--s3); align-items:center; flex-wrap:wrap; margin-top:var(--s2); }
+  .copyrow{ margin-top:var(--s4); display:flex; gap:var(--s3); align-items:center; flex-wrap:wrap; }
+  .copyrow textarea{ flex-basis:100%; }
+  .opt{ display:grid; gap:var(--s4); grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); }
+  .opt .card h3{ margin-top:0; }
+  .facts{ display:grid; gap:var(--s2); margin-top:var(--s3); }
+  .facts p{ margin:0; }
+  #setup-map th:nth-child(2), #setup-map th:nth-child(3){ min-width:16rem; }
+  #db-steps th:nth-child(2){ min-width:13rem; }
+  #db-steps th:nth-child(3){ min-width:9rem; }
+  #db-steps th:last-child{ min-width:22rem; }
+  #setup-map td code, #db-steps td code{ white-space:normal; overflow-wrap:anywhere; }
+  #tables th:nth-child(2){ min-width:9rem; }
+  #tables th:first-child{ min-width:15rem; }
+  #tables td code{ white-space:normal; overflow-wrap:anywhere; }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <span class="eyebrow">rotation-tracker · plan s03 · 31 Oct 2026 · branch <code>prices</code></span>
+  <h1>A price for everything he talks about: <em>the category, its proxy, and the names inside it</em></h1>
+  <p class="lede">The miner has read all 199 weekly wraps and turned them into 18,960 dated calls on 321 assets: semiconductors, software, defensives, bonds and yields, the dollar, bitcoin, Nvidia. The next thing is a daily price series for every one of those assets, at the level he talks about it (<i>software</i>) and one level down (the tickers that make software), so that a later branch can ask what each thing did 6 and 12 months after he said it. This page settles <b>what we price</b>, <b>where the price pipeline lives</b> (not this repo, and not the property one either), <b>how the two repos join</b>, and the order of the build. Nothing here spends money: Yahoo Finance and FRED are free and need no key.</p>
+  <div class="verdict">
+    <div class="stat"><div class="n">94.6%</div><div class="l">of the 23,463 asset rows already point at a price series through <code>rt.assets.proxy</code>: 89 ETFs, indexes, futures, FX pairs and coins, every one of them alive on Yahoo today (probed 30 Oct 2026)</div></div>
+    <div class="stat accent"><div class="n">23</div><div class="l">assets with mentions and no proxy, 1,278 rows (5.4%). Nearly all are macro words (recession, inflation, liquidity) that want an economic series or a basket, not a ticker. Each gets a proposal below, or an explicit <i>none</i></div></div>
+    <div class="stat"><div class="n">≈ 750</div><div class="l">symbols to fetch daily: the ≈ 100 proxies, the 518 names in the S&amp;P 500 ∪ Nasdaq-100, the 118 ETFs and 31 off-index stocks he has named. About 2.3 M daily rows back to 2015, 750 new rows a day</div></div>
+    <div class="stat accent"><div class="n">0</div><div class="l">shared price tables exist today. The property repo holds Australian property and ABS/RBA series, and value-invest-agent's yfinance loader writes a DuckDB file inside that project. So the feed is new, and the plan is to build it as its own sibling, <code>market-getdata</code></div></div>
+    <div class="stat"><div class="n">$0</div><div class="l">Yahoo Finance (via <code>yfinance</code>) and FRED's CSV endpoint are free and keyless. The whole backfill is ≈ 750 requests once, then ≈ 10 batched requests a morning</div></div>
+  </div>
+</header>
+
+<section id="flags">
+  <span class="eyebrow">Flagged up front</span>
+  <h2>Four things the data says about the design</h2>
+  <p class="sub">Each one comes from a read-only pass today over <code>rt.mentions</code>, <code>rt.mention_assets</code> and <code>rt.assets</code> in database <code>rotation</code>, the other eight databases on the central Postgres, the sibling repos, and a live probe of every proxy symbol.</p>
+  <div class="hero-flags">
+    <div class="callout" id="flag-repo">
+      <h3>There is no price feed to add to. The right home is a new sibling built on the property repo's loader <span class="badge rec">recommended</span></h3>
+      <p>You remembered a repo that pulls pricing. The closest is <code>propertyiq_getdata</code>, and it pulls <i>property</i> pricing: NSW sales and rents, ABS and RBA series, landed as <code>raw</code> → <code>staging</code> in database <code>propertyiq</code> by a manifest-driven loader and dbt. That loader is exactly the machinery a daily stock feed needs (partitioned CSVs with sha256 manifests, incremental <code>COPY</code>, dbt tests, <code>meta.pipeline_runs</code>), but US market prices do not belong in a database called <code>propertyiq</code>, run by the property script. The other candidate, <code>value-invest-agent</code>, has a good <code>yfinance</code> loader (<code>market/yahoo.py</code>, <code>market/fred.py</code>) that writes parquet and a DuckDB file nobody else can read. The proposal: a new repo <code>market-getdata</code> that copies the property repo's <code>core/</code>, <code>db/</code> and <code>dbt/</code> skeleton and value-invest-agent's two fetchers, owns database <code>market</code> on the central Postgres, and serves every project over <code>postgres_fdw</code>, the way data-qa-agent already reads <code>propertyiq_staging</code>. Decision 1 below.</p>
+    </div>
+    <div class="callout" id="flag-types">
+      <h3>A proxy is not always a ticker. Three proxy types, and an honest <i>none</i></h3>
+      <p>Of the 23 unpriced assets, 13 are macro words: <i>recession</i> (177 rows), <i>inflation</i> (130), <i>liquidity</i> (44), <i>jobs</i> (32). What prices a recession call is the 10-year minus 3-month Treasury spread, a FRED series, not an ETF. <i>Defensives</i> (196 rows, the biggest gap) is three sectors at once, so it is an equal-weight basket of XLP, XLU and XLV. So <code>proxy</code> grows a type: <code>yahoo:IGV</code>, <code>fred:T10Y3M</code>, <code>basket:defensives</code>. Five assets stay <code>none</code> on purpose (tariffs, geopolitics, earnings, US debt, stablecoins): a sentence about tariffs is context for other calls, not a call with a price. Decision 4 lists every fill.</p>
+    </div>
+    <div class="callout" id="flag-components">
+      <h3>"Software" has three different component lists. Ship two now, the third later</h3>
+      <p>The tickers inside a category can come from <b>GICS</b> (the S&amp;P 500 list we already hold: 14 Application Software and 7 Systems Software names), from the <b>proxy ETF's holdings</b> (IGV holds about 120 names, published daily by the issuer), or from <b>what he actually says</b> (MSFT 69 mentions, PLTR 41, ORCL 20, ADBE 6, CRM 6, CRWD 3; MSFT and CRWD are "systems", the rest "application"). GICS and his names are already in <code>rt.assets</code> and <code>rt.mention_assets</code>, so the Chart and Asset pages can show components in this branch with no new source. Issuer holdings need one scraper per issuer (State Street, iShares and VanEck cover 45 of the 60 ETF proxies) and are phase 2. Decision 6.</p>
+    </div>
+    <div class="callout warn" id="flag-pit">
+      <h3>Point in time, or the later measurement is wrong by construction</h3>
+      <p>Four rules, carried from <code>AGENTS.md</code> into the schema. A Saturday wrap is tradable at <b>Monday's open</b>, never Friday's close. Prices are stored <b>unadjusted and adjusted</b> (Yahoo gives both when <code>auto_adjust=False</code>) with splits and dividends as rows, so a 2024 call on NVDA is judged on the shares that existed then. Index membership is a <b>dated snapshot</b>, so a name that joined the S&amp;P 500 in 2025 is not in its 2023 universe. FRED <b>revises</b> history, so each pull is an <code>asof=</code> vintage appended, never an edit, the same rule the ABS series already follow. Three ETF proxies started after the first wrap (MAGS Apr 2023, IBIT Jan 2024, the Trump coin Jan 2025); each gets a basket or a stated gap, not a silent zero.</p>
+    </div>
+  </div>
+</section>
+
+<section id="covered">
+  <span class="eyebrow">What he talks about, and what prices it today</span>
+  <h2>Eleven kinds of asset, 321 names, 94.6% already pointing at a series</h2>
+  <p class="sub">Rows are <code>rt.mention_assets</code> joined to <code>rt.assets</code> (a mention can name two assets, so 23,463 rows for 18,960 mentions). "Priced" means the asset has a <code>proxy</code> today; for a stock or ETF that is its own ticker. The gap column is what this branch closes.</p>
+  <div class="tablewrap">
+    <table id="by-kind">
+      <thead><tr><th>Kind</th><th class="n">Assets</th><th class="n">Rows</th><th class="n">Share</th><th class="bar">Priced today</th><th>Series today</th><th>Gap</th></tr></thead>
+      <tbody>
+        <tr><td class="k">index</td><td class="n">9</td><td class="n">6,767</td><td class="n">28.8%</td><td class="bar"><div class="meter ok"><i style="width:100%"></i></div></td><td><span class="sym">SPY QQQ DIA IWM RSP ^VIX ^MOVE ^DJT ^NYA</span></td><td class="small muted">none</td></tr>
+        <tr><td class="k">theme</td><td class="n">35</td><td class="n">3,288</td><td class="n">14.0%</td><td class="bar"><div class="meter ok"><i style="width:88%"></i></div></td><td><span class="sym">SMH IGV MAGS KBE KRE ITB XBI GDX IWF IWD IYT JETS XRT ARKK FXI EEM …</span></td><td class="small">defensives 196 · AI 124 · hardware 24 · cyclicals 17 · data centres 13 · meme 6</td></tr>
+        <tr><td class="k">commodity</td><td class="n">12</td><td class="n">3,233</td><td class="n">13.8%</td><td class="bar"><div class="meter ok"><i style="width:100%"></i></div></td><td><span class="sym">GLD SLV USO CPER URA UNG PPLT DBC DBA LIT TIO=F ALI=F</span></td><td class="small muted">none</td></tr>
+        <tr><td class="k">stock</td><td class="n">100</td><td class="n">2,727</td><td class="n">11.6%</td><td class="bar"><div class="meter ok"><i style="width:100%"></i></div></td><td>its own ticker: <span class="sym">NVDA 715 · TSLA 588 · TTWO 176 · AAPL 155 · GOOGL 122 · AMZN 88 · MSFT 69 · MSTR 65 · AMD 54 …</span></td><td class="small muted">31 are outside the S&amp;P 500 and Nasdaq-100 (TSM, BABA, ENPH, MARA, GME, ZM, NET, BHP, JD …): fetched by name</td></tr>
+        <tr><td class="k">sector</td><td class="n">11</td><td class="n">2,105</td><td class="n">9.0%</td><td class="bar"><div class="meter ok"><i style="width:100%"></i></div></td><td><span class="sym">XLK XLF XLE XLV XLU XLY XLP XLI XLB XLRE XLC</span></td><td class="small muted">none</td></tr>
+        <tr><td class="k">macro</td><td class="n">13</td><td class="n">1,551</td><td class="n">6.6%</td><td class="bar"><div class="meter"><i style="width:58%"></i></div></td><td><span class="sym">^IRX</span> for the Fed (896 rows); the other twelve have nothing</td><td class="small">recession 177 · inflation 130 · China 129 · sentiment 44 · liquidity 44 · jobs 32 · tariffs 30 · housing 20 · geopolitics 20 · consumer 18 · earnings 6 · debt 5</td></tr>
+        <tr><td class="k">crypto</td><td class="n">10</td><td class="n">1,493</td><td class="n">6.4%</td><td class="bar"><div class="meter ok"><i style="width:85%"></i></div></td><td><span class="sym">BTC-USD ETH-USD SOL-USD XRP-USD DOGE-USD ADA-USD TRUMP35336-USD</span></td><td class="small">"crypto" the market 177 · altcoins 47 · stablecoins 4</td></tr>
+        <tr><td class="k">rates</td><td class="n">5</td><td class="n">1,059</td><td class="n">4.5%</td><td class="bar"><div class="meter ok"><i style="width:99%"></i></div></td><td><span class="sym">^TNX ^TYX SHY TLT</span></td><td class="small">JGB yields 11</td></tr>
+        <tr><td class="k">fund</td><td class="n">118</td><td class="n">564</td><td class="n">2.4%</td><td class="bar"><div class="meter ok"><i style="width:100%"></i></div></td><td>its own ticker: <span class="sym">XME 100 · OIH 60 · MDY 50 · ARKK 23 · PALL 13 · REMX 10 · RSP 10 · DBB 10 · FXI 9 · SOXL 9 · AIQ 8 · KWEB 5 · IBIT 5 …</span></td><td class="small muted">none</td></tr>
+        <tr><td class="k">fx</td><td class="n">5</td><td class="n">507</td><td class="n">2.2%</td><td class="bar"><div class="meter ok"><i style="width:100%"></i></div></td><td><span class="sym">DX-Y.NYB USDJPY=X EURUSD=X AUDUSD=X CNY=X</span></td><td class="small muted">none</td></tr>
+        <tr><td class="k">credit</td><td class="n">3</td><td class="n">169</td><td class="n">0.7%</td><td class="bar"><div class="meter ok"><i style="width:98%"></i></div></td><td><span class="sym">HYG LQD</span></td><td class="small">private credit 4</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small">Also unresolved: 157 rows the resolver could not place and 29 ambiguous ones (0.8% together). The commonest, "the 10 versus 3-month spread" and "2-year versus 10-year", are yield spreads, which the FRED series below price directly; they become aliases of <code>rates:spread-10y3m</code> and <code>rates:spread-10y2y</code> in this branch.</p>
+</section>
+
+<section id="chart-map">
+  <span class="eyebrow">The Chart tab is the source of truth</span>
+  <h2>Its 18 themes, each pinned to one asset and one price series</h2>
+  <p class="sub">The Chart's keyword themes (<code>themes/v0</code> in <code>serving/themes.py</code>) and the miner's assets (<code>assets/v1</code>) grew up separately. This branch pins each theme to an asset id, so the keyword line and the mined line sit on one row with one price under them. Two themes need a new series, marked <span class="new">new</span>. A second series on a row is the companion the later measurement will also look at, never a replacement.</p>
+  <div class="tablewrap">
+    <table id="themes">
+      <thead><tr><th>Chart theme</th><th>Asset id</th><th>Price series</th><th>Companion series</th><th class="n">History from</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Semiconductors</td><td><code>theme:semis</code></td><td class="sym">SMH</td><td class="sym muted">SOXX · NVDA</td><td class="n">2000</td></tr>
+        <tr><td class="k">Software &amp; SaaS</td><td><code>theme:software</code></td><td class="sym">IGV</td><td class="sym muted">XSW (he names it)</td><td class="n">2001</td></tr>
+        <tr><td class="k">AI</td><td><code>theme:ai</code></td><td class="sym new">AIQ <span class="badge rec">new</span></td><td class="sym muted">SMH · basket:mag7</td><td class="n">2018</td></tr>
+        <tr><td class="k">Big tech</td><td><code>theme:mag7</code></td><td class="sym new">basket:mag7 <span class="badge rec">new</span></td><td class="sym muted">MAGS (from Apr 2023) · MGK</td><td class="n">2012</td></tr>
+        <tr><td class="k">Banks &amp; financials</td><td><code>theme:banks</code></td><td class="sym">KBE</td><td class="sym muted">XLF · KRE</td><td class="n">2005</td></tr>
+        <tr><td class="k">Energy &amp; oil</td><td><code>sector:energy</code></td><td class="sym">XLE</td><td class="sym muted">USO · fred:DCOILWTICO</td><td class="n">1998</td></tr>
+        <tr><td class="k">Healthcare</td><td><code>sector:healthcare</code></td><td class="sym">XLV</td><td class="sym muted">XBI</td><td class="n">1998</td></tr>
+        <tr><td class="k">Small caps</td><td><code>index:rut</code></td><td class="sym">IWM</td><td class="sym muted">MDY (he names it)</td><td class="n">2000</td></tr>
+        <tr><td class="k">Gold &amp; silver</td><td><code>commodity:gold</code></td><td class="sym">GLD</td><td class="sym muted">SLV · GDX</td><td class="n">2004</td></tr>
+        <tr><td class="k">Crypto</td><td><code>crypto:btc</code></td><td class="sym">BTC-USD</td><td class="sym muted">ETH-USD · basket:crypto</td><td class="n">2014</td></tr>
+        <tr><td class="k">Bonds &amp; yields</td><td><code>rates:us10y</code></td><td class="sym">fred:DGS10</td><td class="sym muted">TLT (price) · ^TNX · fred:DGS2 · fred:DGS30</td><td class="n">1962</td></tr>
+        <tr><td class="k">The dollar</td><td><code>fx:dxy</code></td><td class="sym">DX-Y.NYB</td><td class="sym muted">fred:DTWEXBGS</td><td class="n">1971</td></tr>
+        <tr><td class="k">China</td><td><code>theme:china-stocks</code></td><td class="sym">FXI</td><td class="sym muted">KWEB · CNY=X</td><td class="n">2004</td></tr>
+        <tr><td class="k">Utilities</td><td><code>sector:utilities</code></td><td class="sym">XLU</td><td class="sym muted"></td><td class="n">1998</td></tr>
+        <tr><td class="k">Consumer</td><td><code>sector:discretionary</code></td><td class="sym">XLY</td><td class="sym muted">XLP · XRT</td><td class="n">1998</td></tr>
+        <tr><td class="k">Industrials</td><td><code>sector:industrials</code></td><td class="sym">XLI</td><td class="sym muted">IYT</td><td class="n">1998</td></tr>
+        <tr><td class="k">Real estate</td><td><code>sector:real-estate</code></td><td class="sym">XLRE</td><td class="sym muted">ITB · fred:MORTGAGE30US</td><td class="n">2015</td></tr>
+        <tr><td class="k">Defensives</td><td><code>theme:defensives</code></td><td class="sym new">basket:defensives <span class="badge rec">new</span></td><td class="sym muted">XLP · XLU · XLV</td><td class="n">1998</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small">A note on <i>Bonds &amp; yields</i>: a bullish call there is bullish on whatever he named, so "yields going higher" is bullish on the yield and bearish on TLT. Pinning the theme to the <b>yield</b> (DGS10) and keeping TLT as the companion lets the measurement branch score either reading; it does not decide for it.</p>
+  <p class="small" id="history-note"><b>History from</b> is the first date the primary series exists on Yahoo or FRED, and the recommendation is to take each of these ≈ 100 proxies and series from that date: they are small (≈ 450,000 rows for all of them), they are free, and the years before 2015 hold the only full regimes the measurement can compare his calls against (2000 to 2002, 2008, 2020). The ≈ 650 individual stocks are the different case and start at <b>2015-01-01</b>: eight years before the first wrap covers any lookback the measurement will want (200-week average, five-year relative return), and the further back the list goes the less it is the index he talks about. Of today's 503 S&amp;P 500 members, 314 were in the index before 2015, 371 before 2018 and 424 before 2022. The choice is reversible at no cost: Yahoo serves the full history on request, so extending a start date later is one backfill run, not a migration.</p>
+</section>
+
+<section id="gaps">
+  <span class="eyebrow">Filling the gap</span>
+  <h2>The 23 unpriced assets, and the series proposed for each</h2>
+  <p class="sub">Ordered by rows. <code>yahoo:</code> is a ticker on Yahoo Finance, <code>fred:</code> a series on FRED (free CSV, no key; the series below were all fetched today), <code>basket:</code> an equal-weight index of other series, rebased to 100 and rebalanced monthly, computed in dbt. Where the fill is a series we already hold, the row says <i>reuse</i>. Decision 4 lets you accept the table or change rows.</p>
+  <div class="tablewrap">
+    <table id="fills">
+      <thead><tr><th>Asset</th><th class="n">Rows</th><th>Proposed series</th><th>Type</th><th class="n">From</th><th>Why this, and what it misses</th></tr></thead>
+      <tbody>
+        <tr><td class="k"><code>theme:defensives</code></td><td class="n">196</td><td class="sym">basket:defensives = XLP + XLU + XLV</td><td><span class="badge">basket</span></td><td class="n">1998</td><td>His own definition on the channel: "staples, utilities, health care". Equal weight, monthly rebalance.</td></tr>
+        <tr><td class="k"><code>macro:recession</code></td><td class="n">177</td><td class="sym">fred:T10Y3M</td><td><span class="badge">fred</span></td><td class="n">1982</td><td>The 10-year minus 3-month spread is the recession indicator he quotes ("the 10 versus 3 month spread"). <code>fred:T10Y2Y</code> alongside as companion.</td></tr>
+        <tr><td class="k"><code>crypto:market</code></td><td class="n">177</td><td class="sym">basket:crypto = BTC-USD + ETH-USD</td><td><span class="badge">basket</span></td><td class="n">2017</td><td>Yahoo has no total-market series. Two coins are 70% of the market; CoinGecko's free global endpoint can replace it in phase 2.</td></tr>
+        <tr><td class="k"><code>macro:inflation</code></td><td class="n">130</td><td class="sym">fred:T5YIE</td><td><span class="badge">fred</span></td><td class="n">2003</td><td>The 5-year breakeven is daily and forward-looking, which a call needs. <code>fred:CPIAUCSL</code> (monthly) as companion for the headline he reacts to.</td></tr>
+        <tr><td class="k"><code>macro:china</code></td><td class="n">129</td><td class="sym">FXI</td><td><span class="badge info">reuse</span></td><td class="n">2004</td><td>"China's economy" and "Chinese stocks" are priced by the same large-cap ETF; <code>CNY=X</code> as companion.</td></tr>
+        <tr><td class="k"><code>theme:ai</code></td><td class="n">124</td><td class="sym">AIQ</td><td><span class="badge">yahoo</span></td><td class="n">2018</td><td>Global X AI &amp; Technology; he names AIQ himself (8 mentions). Companion <code>SMH</code>, since his "AI trade" is often the chips.</td></tr>
+        <tr><td class="k"><code>crypto:alts</code></td><td class="n">47</td><td class="sym">basket:alts = ETH + SOL + XRP + ADA + DOGE</td><td><span class="badge">basket</span></td><td class="n">2017</td><td>The five alts already in the map. SOL joins the basket when its history starts (Apr 2020); the basket rule handles members with later starts.</td></tr>
+        <tr><td class="k"><code>macro:sentiment</code></td><td class="n">44</td><td class="sym">^VIX</td><td><span class="badge info">reuse</span></td><td class="n">1990</td><td>Already <code>index:vix</code>. AAII and put/call are not free daily series; left for later.</td></tr>
+        <tr><td class="k"><code>macro:liquidity</code></td><td class="n">44</td><td class="sym">fred:WALCL</td><td><span class="badge">fred</span></td><td class="n">2002</td><td>Fed balance sheet, weekly. Companion <code>fred:RRPONTSYD</code> (reverse repo, daily). Net liquidity (WALCL − TGA − RRP) is a phase-2 derived series.</td></tr>
+        <tr><td class="k"><code>macro:jobs</code></td><td class="n">32</td><td class="sym">fred:ICSA</td><td><span class="badge">fred</span></td><td class="n">1967</td><td>Initial claims, weekly. Companion <code>fred:UNRATE</code> (monthly).</td></tr>
+        <tr><td class="k"><code>macro:tariffs</code></td><td class="n">30</td><td class="sym muted">none</td><td><span class="badge warn">none</span></td><td class="n"></td><td>No price is "tariffs". The mentions stay as context for the calls around them.</td></tr>
+        <tr><td class="k"><code>theme:hardware</code></td><td class="n">24</td><td class="sym">basket:hardware = GICS "Technology Hardware, Storage &amp; Peripherals"</td><td><span class="badge">basket</span></td><td class="n">2015</td><td>AAPL, SNDK, SMCI, WDC, STX, NTAP, HPQ, HPE, DELL, PSTG, JBL… the sub-industry list from <code>rt.assets</code>, so it moves with membership.</td></tr>
+        <tr><td class="k"><code>macro:housing</code></td><td class="n">20</td><td class="sym">ITB</td><td><span class="badge info">reuse</span></td><td class="n">2006</td><td>Already <code>theme:homebuilders</code>. Companion <code>fred:MORTGAGE30US</code> (weekly).</td></tr>
+        <tr><td class="k"><code>macro:geopolitics</code></td><td class="n">20</td><td class="sym muted">none</td><td><span class="badge warn">none</span></td><td class="n"></td><td>Context, not a call. (Oil and gold are their own assets and are already priced.)</td></tr>
+        <tr><td class="k"><code>macro:consumer</code></td><td class="n">18</td><td class="sym">XLY</td><td><span class="badge info">reuse</span></td><td class="n">1998</td><td>Already <code>sector:discretionary</code>. Companion <code>fred:UMCSENT</code> (monthly sentiment).</td></tr>
+        <tr><td class="k"><code>theme:cyclicals</code></td><td class="n">17</td><td class="sym">basket:cyclicals = XLI + XLB + XLY + XLF + XLE</td><td><span class="badge">basket</span></td><td class="n">1998</td><td>The five sectors that trade as "cyclicals" on the channel.</td></tr>
+        <tr><td class="k"><code>theme:data-centers</code></td><td class="n">13</td><td class="sym">DTCR</td><td><span class="badge">yahoo</span></td><td class="n">2020</td><td>Global X Data Center &amp; Digital Infrastructure. <code>SRVR</code> (2018) as companion for the earlier years.</td></tr>
+        <tr><td class="k"><code>rates:jgb</code></td><td class="n">11</td><td class="sym">fred:IRLTLT01JPM156N</td><td><span class="badge">fred</span></td><td class="n">1989</td><td>Japan 10-year, <b>monthly only</b>; Yahoo has no JGB symbol. Good enough for 11 rows.</td></tr>
+        <tr><td class="k"><code>macro:earnings</code></td><td class="n">6</td><td class="sym muted">none</td><td><span class="badge warn">none</span></td><td class="n"></td><td>"Earnings season" is a calendar, not a price.</td></tr>
+        <tr><td class="k"><code>theme:meme-stocks</code></td><td class="n">6</td><td class="sym">basket:meme = GME + AMC</td><td><span class="badge">basket</span></td><td class="n">2015</td><td>The MEME ETF closed in 2023 and relaunched in Oct 2025, so a basket is the only continuous series. He names GME.</td></tr>
+        <tr><td class="k"><code>macro:debt</code></td><td class="n">5</td><td class="sym muted">none</td><td><span class="badge warn">none</span></td><td class="n"></td><td>TLT and DGS30 already carry the tradable side of "US debt"; the word itself is context.</td></tr>
+        <tr><td class="k"><code>crypto:stablecoins</code></td><td class="n">4</td><td class="sym muted">none</td><td><span class="badge warn">none</span></td><td class="n"></td><td>A stablecoin's price is $1 by design; the signal is supply, which is DefiLlama, phase 2 if ever.</td></tr>
+        <tr><td class="k"><code>credit:private</code></td><td class="n">4</td><td class="sym">BIZD</td><td><span class="badge">yahoo</span></td><td class="n">2013</td><td>VanEck BDC Income: listed private lenders, the nearest traded thing to private credit.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small">After the fills: 18 of 23 priced, 5 explicit <i>none</i> covering 65 rows (0.3%). Coverage of asset rows goes from 94.6% to 99.4%. New Yahoo symbols: AIQ, DTCR, BIZD, SRVR, XSW, SOXX, MGK, KWEB, AMC. New FRED series: DGS2, DGS10, DGS30, DGS3MO, DFF, T10Y2Y, T10Y3M, T5YIE, WALCL, RRPONTSYD, ICSA, UNRATE, CPIAUCSL, UMCSENT, MORTGAGE30US, IRLTLT01JPM156N, DTWEXBGS, DCOILWTICO. The ICE BofA credit spreads (HY and IG OAS) only come back from Oct 2023 through FRED's CSV, so HYG and LQD prices stay the primary credit series.</p>
+</section>
+
+<section id="components">
+  <span class="eyebrow">One level down</span>
+  <h2>What is inside a category, and how the Chart will show it</h2>
+  <p class="sub">A category's component set is the union of three lists. Two exist today; the third is phase 2. The mock below is the Chart row and the Asset page's new panel for <i>Software</i>, drawn in the viewer's own vocabulary with real numbers: the mined mention lines from <code>/api/chart?view=assets</code> and IGV's quarter-end closes relative to SPY.</p>
+  <div class="tablewrap">
+    <table id="comp-sources">
+      <thead><tr><th>List</th><th>Where it comes from</th><th>Software, today</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="k">GICS sub-industry</td><td>The S&amp;P 500 constituent list already in <code>rt.assets</code> (<code>gics_sector</code>, <code>gics_sub_industry</code>, 126 sub-industries). A new <code>assets/components.yaml</code> maps sub-industries to categories: Application + Systems Software → software; Semiconductors + Semiconductor Materials &amp; Equipment → semis; Diversified + Regional Banks → banks; Homebuilding → homebuilders; Biotechnology → biotech; and every sector to its <code>sector:</code> row.</td><td class="sym">ADBE ADSK CDNS CRM DDOG FICO INTU ORCL PLTR PTC SNPS TRMB TYL WDAY · CRWD FTNT GEN MSFT NOW PANW TWLO</td><td><span class="badge ok">this branch</span></td></tr>
+        <tr><td class="k">What he says</td><td>Stocks named in the same mention as the category, or whose GICS row maps to it, from <code>rt.mention_assets</code>. Ranked by mentions, so the panel leads with the names he actually talks about.</td><td class="sym">MSFT 69 · PLTR 41 · ORCL 20 · ADBE 6 · CRM 6 · CRWD 3 · ZM 5 · NET 4</td><td><span class="badge ok">this branch</span></td></tr>
+        <tr><td class="k">Proxy ETF holdings</td><td>The issuer's daily holdings file: State Street (XL*, KBE, KRE, XBI, XRT, XME, MDY), iShares (IWM, ITB, IYT, IWF, IWD, EEM, FXI, HYG, LQD, TLT, SHY, EWJ, EWY, EWA, IBIT, ICLN, ITA, IAI, IYW), VanEck (SMH, GDX, OIH, REMX, BIZD, NLR). One scraper per issuer, weekly, into <code>staging.holdings</code>.</td><td class="sym muted">IGV: ≈ 120 names with weights</td><td><span class="badge info">phase 2</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mock" id="mock-chart" aria-label="The Chart row for Software after this branch">
+    <div class="hdr"><b>Chart · assets the miner found · all time first</b><span class="small muted">mentions per weekly wrap, 16 quarters, one x scale · price relative to SPY, rebased</span></div>
+    <div class="row head"><span>#</span><span>asset</span><span>mentions, then price</span><span class="cnt">all time</span></div>
+    <div class="row">
+      <span class="rank">2</span>
+      <span class="nm"><b>Semiconductors</b><span class="sym">theme:semis · SMH since 2000 · 15 + 5 GICS names</span></span>
+      <span class="sparks">
+        <span class="spark"><span class="lab">mentions</span><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><line class="yr" x1="20" y1="0" x2="20" y2="100"/><line class="yr" x1="46.7" y1="0" x2="46.7" y2="100"/><line class="yr" x1="73.3" y1="0" x2="73.3" y2="100"/><polyline class="all" points="0.0,88.6 6.7,75.4 13.3,45.3 20.0,71.6 26.7,45.3 33.3,54.7 40.0,49.1 46.7,60.4 53.3,69.8 60.0,56.6 66.7,58.5 73.3,73.5 80.0,73.5 86.7,2.0 93.3,18.9 100.0,22.7"/><polyline class="down" points="0.0,98.0 6.7,88.6 13.3,58.5 20.0,94.2 26.7,60.4 33.3,75.4 40.0,75.4 46.7,88.6 53.3,92.4 60.0,77.3 66.7,88.6 73.3,92.4 80.0,88.6 86.7,60.4 93.3,41.5 100.0,56.6"/><polyline class="up" points="0.0,88.6 6.7,86.7 13.3,86.7 20.0,75.4 26.7,82.9 33.3,75.4 40.0,73.5 46.7,69.8 53.3,77.3 60.0,75.4 66.7,67.9 73.3,79.2 80.0,84.8 86.7,43.4 93.3,77.3 100.0,64.1"/></svg></span>
+        <span class="spark"><span class="lab">SMH vs SPY · 1.00 → 2.20</span><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><line class="yr" x1="20" y1="0" x2="20" y2="100"/><line class="yr" x1="46.7" y1="0" x2="46.7" y2="100"/><line class="yr" x1="73.3" y1="0" x2="73.3" y2="100"/><line class="ref" x1="0" y1="96.9" x2="100" y2="96.9"/><polyline class="px" points="0.0,96.9 6.7,93.3 13.3,94.3 20.0,89.2 26.7,78.8 33.3,70.7 40.0,79.6 46.7,82.0 53.3,88.2 60.0,76.0 66.7,69.7 73.3,63.2 80.0,53.2 86.7,4.9 93.3,18.7 100.0,30.1"/></svg></span>
+      </span>
+      <span class="cnt">448</span>
+    </div>
+    <div class="row">
+      <span class="rank">11</span>
+      <span class="nm"><b>Software</b><span class="sym">theme:software · IGV since 2001 · 14 + 7 GICS names</span></span>
+      <span class="sparks">
+        <span class="spark"><span class="lab">mentions</span><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><line class="yr" x1="20" y1="0" x2="20" y2="100"/><line class="yr" x1="46.7" y1="0" x2="46.7" y2="100"/><line class="yr" x1="73.3" y1="0" x2="73.3" y2="100"/><polyline class="all" points="0.0,98.0 6.7,98.0 13.3,98.0 20.0,98.0 26.7,98.0 33.3,92.4 40.0,98.0 46.7,98.0 53.3,98.0 60.0,98.0 66.7,92.4 73.3,98.0 80.0,35.9 86.7,2.0 93.3,35.9 100.0,98.0"/><polyline class="down" points="0.0,98.0 6.7,98.0 13.3,98.0 20.0,98.0 26.7,98.0 33.3,92.4 40.0,98.0 46.7,98.0 53.3,98.0 60.0,98.0 66.7,92.4 73.3,98.0 80.0,86.7 86.7,81.1 93.3,86.7 100.0,98.0"/><polyline class="up" points="0.0,98.0 6.7,98.0 13.3,98.0 20.0,98.0 26.7,98.0 33.3,98.0 40.0,98.0 46.7,98.0 53.3,98.0 60.0,98.0 66.7,98.0 73.3,98.0 80.0,58.5 86.7,18.9 93.3,47.2 100.0,98.0"/></svg></span>
+        <span class="spark"><span class="lab">IGV vs SPY · 1.00 → 0.90</span><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><line class="yr" x1="20" y1="0" x2="20" y2="100"/><line class="yr" x1="46.7" y1="0" x2="46.7" y2="100"/><line class="yr" x1="73.3" y1="0" x2="73.3" y2="100"/><line class="ref" x1="0" y1="43.8" x2="100" y2="43.8"/><polyline class="px" points="0.0,43.8 6.7,33.2 13.3,28.7 20.0,12.5 26.7,25.0 33.3,31.0 40.0,37.7 46.7,15.6 53.3,34.2 60.0,7.4 66.7,15.1 73.3,42.5 80.0,91.4 86.7,94.4 93.3,67.3 100.0,66.3"/></svg></span>
+      </span>
+      <span class="cnt">52</span>
+    </div>
+    <div class="axis"><span>2023</span><span>2024</span><span>2025</span><span>2026</span></div>
+    <div class="key"><span><i class="dot"></i>all mentions</span><span><i class="up"></i>in bullish calls</span><span><i class="down"></i>in bearish calls</span><span><i class="px"></i>proxy price relative to SPY</span><span><i class="ref"></i>where it started</span></div>
+    <div class="comps">
+      <b>Software · components</b> <span class="small muted">· names he says first, then the rest of the GICS list; bordered chips are ones he has named</span>
+      <div class="chips">
+        <span class="chip said"><span class="sym">MSFT</span><span class="n">69</span></span><span class="chip said"><span class="sym">PLTR</span><span class="n">41</span></span><span class="chip said"><span class="sym">ORCL</span><span class="n">20</span></span><span class="chip said"><span class="sym">ADBE</span><span class="n">6</span></span><span class="chip said"><span class="sym">CRM</span><span class="n">6</span></span><span class="chip said"><span class="sym">CRWD</span><span class="n">3</span></span><span class="chip"><span class="sym">NOW</span></span><span class="chip"><span class="sym">INTU</span></span><span class="chip"><span class="sym">PANW</span></span><span class="chip"><span class="sym">ADSK</span></span><span class="chip"><span class="sym">CDNS</span></span><span class="chip"><span class="sym">SNPS</span></span><span class="chip"><span class="sym">WDAY</span></span><span class="chip"><span class="sym">DDOG</span></span><span class="chip"><span class="sym">FTNT</span></span><span class="chip"><span class="sym">FICO</span></span><span class="chip"><span class="sym">PTC</span></span><span class="chip"><span class="sym">TYL</span></span><span class="chip"><span class="sym">TRMB</span></span><span class="chip"><span class="sym">GEN</span></span><span class="chip"><span class="sym">TWLO</span></span>
+      </div>
+    </div>
+  </div>
+  <p class="small">What the mock shows that a table would not: the software spike in 2026 Q1 and Q2 (1.1 and 1.7 mentions a wrap, mostly bullish) arrived right after IGV's worst quarter against SPY; the semis spike in 2026 Q2 (5.1 a wrap, 2.9 of them bullish) sits on SMH's best. Whether those were good calls is the next branch's question. This branch only makes the two lines share an x axis.</p>
+</section>
+
+<section id="where">
+  <span class="eyebrow">Where the pipeline lives</span>
+  <h2>Three homes for a daily price feed; one keeps every repo doing one thing</h2>
+  <p class="sub">The shape of each, with what it costs. Decision 1 picks.</p>
+  <div class="opt">
+    <div class="card rec" id="opt-a">
+      <h3>A · New sibling <code>market-getdata</code>, the same setup as <code>propertyiq_getdata</code> <span class="badge rec">recommended</span> <span class="badge info">your note: yes</span></h3>
+      <p>Clone the property repo's skeleton (<code>core/manifest.py</code>, <code>core/snapshot.py</code>, <code>db/load.py</code>, <code>db/registry.py</code>, the dbt project and <code>db init / update / smoke</code>), drop in value-invest-agent's <code>yahoo.py</code> and <code>fred.py</code> as <code>sources/</code>, add <code>sources/holdings.py</code> later. Registry entry <b>P12</b>: database <code>market</code>, roles <code>market_owner</code> and <code>market_ro</code>, <code>make db-init</code>, a zero-cost <code>smoke</code>.</p>
+      <div class="facts">
+        <p class="small"><b>Consumers.</b> rotation-tracker, value-invest-agent (can retire its DuckDB loader), anything later. Each imports <code>market_staging.*</code> over <code>postgres_fdw</code> as <code>market_ro</code>, exactly as data-qa-agent imports <code>propertyiq_staging</code> (migration <code>0040</code>).</p>
+        <p class="small"><b>Costs.</b> One more repo and launchd job to look after. Half a day of agent work for the scaffold, registry and first load before any price lands.</p>
+        <p class="small"><b>Gets right.</b> A database named for what it holds, its own daily cadence, and the public rotation-tracker repo stays free of a price loader.</p>
+      </div>
+    </div>
+    <div class="card" id="opt-b">
+      <h3>B · Extend <code>propertyiq_getdata</code></h3>
+      <p>Add <code>sources/yahoo.py</code> and <code>sources/fred.py</code> to the property repo; land in database <code>propertyiq</code> as <code>raw.yahoo_prices</code>, <code>staging.prices_daily</code>; append to <code>update_data_and_push.sh</code>.</p>
+      <div class="facts">
+        <p class="small"><b>Consumers.</b> Connect to <code>propertyiq</code> for US stock prices, forever.</p>
+        <p class="small"><b>Costs.</b> Least new code (two source modules, a LoadSpec each). The property script runs weekly for the NSW files and would now carry a daily job; the repo's name, README and registry notes all become wrong.</p>
+        <p class="small"><b>Gets right.</b> Reuses the loader without copying it.</p>
+      </div>
+    </div>
+    <div class="card" id="opt-c">
+      <h3>C · Inside rotation-tracker (<code>rt.prices</code>)</h3>
+      <p>What the s00 plan said in January: copy the yfinance loader into this repo, <code>rt prices update</code>, tables in schema <code>rt</code>.</p>
+      <div class="facts">
+        <p class="small"><b>Consumers.</b> Only this project. value-invest-agent keeps its own copy; the next project copies again.</p>
+        <p class="small"><b>Costs.</b> Fastest join (no fdw), but the public repo carries a market-data loader, the rotation database grows 2.3 M rows that are not about the channel, and you said the data belongs in its own repo.</p>
+        <p class="small"><b>Gets right.</b> Nothing to install elsewhere.</p>
+      </div>
+    </div>
+  </div>
+  <h3 id="same-setup" style="margin-top:var(--s6)">Same setup as <code>propertyiq_getdata</code>, piece for piece</h3>
+  <div class="tablewrap">
+    <table id="setup-map">
+      <thead><tr><th>Piece</th><th>propertyiq_getdata today</th><th>market-getdata</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Build</td><td><code>uv</code>, setuptools <code>pyproject.toml</code>, a <code>db</code> extra (psycopg, dbt-core, dbt-postgres), pytest in the dev group</td><td>The same, so a fetch-only install stays light. Adds <code>yfinance</code>.</td></tr>
+        <tr><td class="k">Package</td><td><code>propertyiq_getdata/</code>: <code>cli.py</code>, <code>core/</code>, <code>sources/</code>, <code>sinks/</code>, <code>db/</code>, <code>audit.py</code></td><td><code>market_getdata/</code> with the same folders. <code>sources/</code> holds yahoo, fred and constituents.</td></tr>
+        <tr><td class="k">CLI</td><td><code>&lt;source&gt; pull|transform|manifest|update</code>, <code>db init|load|dbt|update|smoke|export-fixture</code>, <code>audit</code></td><td><code>yahoo|fred|constituents pull|transform|manifest|update</code>, the same <code>db</code> verbs, <code>audit</code></td></tr>
+        <tr><td class="k">Partitions</td><td>Period files under <code>data/normalized/</code>, sha256 in the manifest</td><td>Symbol × year files, so a daily run rewrites one small file per symbol</td></tr>
+        <tr><td class="k">Database</td><td><code>propertyiq</code>: <code>raw</code>, <code>staging</code>, <code>meta</code>; two roles</td><td><code>market</code>: the same three schemas; <code>market_owner</code>, <code>market_ro</code></td></tr>
+        <tr><td class="k">dbt</td><td><code>models/staging</code> only, tables not views, tagged <code>agent_queryable</code>, no marts</td><td>The same rule. Marts live with the consumer.</td></tr>
+        <tr><td class="k">Run script</td><td><code>scripts/update_data_and_push.sh</code>, run by hand</td><td><code>scripts/update.sh</code>, run daily by launchd</td></tr>
+        <tr><td class="k">Tests</td><td>Offline by default, <code>live</code> marker, small fixtures</td><td>The same, with synthetic price fixtures only</td></tr>
+        <tr><td class="k">Git hygiene</td><td><code>data/</code>, <code>.env</code> and <code>*.csv</code> ignored</td><td>The same. The repo is public and holds no prices.</td></tr>
+        <tr><td class="k">Docs</td><td><code>AGENTS.md</code>, <code>CLAUDE.md</code>, <code>README.md</code>, <code>.lavish/</code></td><td>The same, with the house CSS installed</td></tr>
+        <tr><td class="k">Left out</td><td>Google Drive and Databricks publish sinks</td><td>Not copied. Nothing needs them yet.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="pipeline">
+  <span class="eyebrow">The feed</span>
+  <h2>From three free sources to one schema every project can read</h2>
+  <p class="sub">The same three stages as the property pipeline: fetch to partitioned CSV with a manifest, <code>COPY</code> what changed into <code>raw</code>, clean with dbt into <code>staging</code>. The tracker reads <code>staging</code> over <code>postgres_fdw</code>; nothing is copied twice.</p>
+  <div class="fig" id="fig-pipeline">
+    <svg viewBox="0 0 1000 400" role="img" aria-labelledby="fig-pipeline-t">
+      <title id="fig-pipeline-t">Pipeline: Yahoo, FRED and issuer holdings land as partitioned CSVs with manifests, are copied into raw, cleaned by dbt into staging in database market, and read by rotation-tracker over postgres_fdw.</title>
+      <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+      <g class="region" id="rg-sources"><rect x="10" y="10" width="200" height="330" rx="8"/><text x="22" y="32">sources · free, keyless</text></g>
+      <g class="region" id="rg-repo"><rect x="240" y="10" width="440" height="330" rx="8"/><text x="252" y="32">market-getdata · daily 09:00 Sydney (launchd)</text></g>
+      <g class="region" id="rg-consumers"><rect x="710" y="10" width="280" height="330" rx="8"/><text x="722" y="32">consumers</text></g>
+
+      <g class="node src" id="n-yahoo"><title>Yahoo Finance via yfinance: ≈ 750 symbols, daily OHLCV, adjusted close, splits, dividends</title><rect x="25" y="55" width="170" height="64" rx="6"/><text class="t" x="35" y="80">Yahoo Finance</text><text class="d" x="35" y="98">yfinance · ≈ 750 symbols</text><text class="d" x="35" y="112">OHLCV, adj close, actions</text></g>
+      <g class="node src" id="n-fred"><title>FRED fredgraph.csv: 18 series, daily/weekly/monthly, appended as asof vintages</title><rect x="25" y="140" width="170" height="64" rx="6"/><text class="t" x="35" y="165">FRED</text><text class="d" x="35" y="183">fredgraph.csv · 18 series</text><text class="d" x="35" y="197">yields, spreads, CPI, claims</text></g>
+      <g class="node src" id="n-lists"><title>S&amp;P 500 and Nasdaq-100 constituent lists, monthly snapshot; issuer holdings files in phase 2</title><rect x="25" y="225" width="170" height="64" rx="6"/><text class="t" x="35" y="250">Lists &amp; holdings</text><text class="d" x="35" y="268">S&amp;P 500 · Nasdaq-100 · GICS</text><text class="d" x="35" y="282">issuer holdings (phase 2)</text></g>
+
+      <g class="node" id="n-norm"><title>data/normalized/&lt;source&gt;/&lt;dataset&gt;/ partitions plus manifests with sha256 (gitignored)</title><rect x="260" y="120" width="180" height="84" rx="6"/><text class="t" x="270" y="145">normalized CSV</text><text class="d" x="270" y="163">yahoo/prices/symbol=…/year=…</text><text class="d" x="270" y="177">fred/&lt;series&gt;/asof=…</text><text class="d" x="270" y="191">manifests · sha256 · gitignored</text></g>
+      <g class="node store" id="n-raw"><title>raw.yahoo_prices, raw.yahoo_actions, raw.fred_&lt;series&gt;, raw.constituents: text columns plus _partition, _sha256, _loaded_at</title><rect x="470" y="60" width="190" height="78" rx="6"/><text class="t" x="480" y="85">raw</text><text class="d" x="480" y="103">yahoo_prices · yahoo_actions</text><text class="d" x="480" y="117">fred_* · constituents</text><text class="d" x="480" y="131">COPY only what changed</text></g>
+      <g class="node store" id="n-staging"><title>staging: instruments, prices_daily, actions, series_daily, baskets, basket_prices_daily, constituents, holdings; dbt-tested</title><rect x="470" y="160" width="190" height="120" rx="6"/><text class="t" x="480" y="185">staging · dbt</text><text class="d" x="480" y="203">instruments · prices_daily</text><text class="d" x="480" y="217">actions · series_daily</text><text class="d" x="480" y="231">baskets · basket_prices_daily</text><text class="d" x="480" y="245">constituents · holdings</text><text class="d" x="480" y="259">meta.load_state · pipeline_runs</text><text class="d mono" x="480" y="273">database market</text></g>
+
+      <g class="node" id="n-rt"><title>rotation-tracker: market_staging.* foreign tables as market_ro; rt.asset_proxies joins asset ids to symbols</title><rect x="725" y="60" width="250" height="84" rx="6"/><text class="t" x="735" y="85">rotation-tracker</text><text class="d" x="735" y="103">market_staging.* over postgres_fdw</text><text class="d" x="735" y="117">rt.asset_proxies: asset → symbol</text><text class="d" x="735" y="131">Chart price line · Asset components</text></g>
+      <g class="node next" id="n-vi"><title>value-invest-agent could read the same tables instead of its DuckDB copy</title><rect x="725" y="165" width="250" height="56" rx="6"/><text class="t" x="735" y="190">value-invest-agent</text><text class="d" x="735" y="208">later: retire its own yfinance copy</text></g>
+      <g class="node next" id="n-measure"><title>The measurement branch after this one: forward returns per mention</title><rect x="725" y="242" width="250" height="56" rx="6"/><text class="t" x="735" y="267">measurement · next branch</text><text class="d" x="735" y="285">each call vs its proxy, 1 to 52 weeks on</text></g>
+
+      <path class="edge" d="M195,87 C230,87 230,150 260,150" marker-end="url(#ah)"/>
+      <path class="edge" d="M195,172 C230,172 230,162 260,162" marker-end="url(#ah)"/>
+      <path class="edge" d="M195,257 C230,257 230,180 260,180" marker-end="url(#ah)"/>
+      <path class="edge" d="M440,150 C455,150 455,99 470,99" marker-end="url(#ah)"/>
+      <path class="edge" d="M565,138 L565,160" marker-end="url(#ah)"/>
+      <path class="edge" d="M660,200 C690,200 690,102 725,102" marker-end="url(#ah)"/>
+      <path class="edge next" d="M660,220 C690,220 690,193 725,193" marker-end="url(#ah)"/>
+      <path class="edge next" d="M850,144 L850,165" marker-end="url(#ah)"/>
+      <path class="edge next" d="M850,221 L850,242" marker-end="url(#ah)"/>
+      <text class="sub" x="300" y="330">fetch · transform · manifest</text>
+      <text class="sub" x="480" y="330">db update: load → dbt build → audit</text>
+      <text class="sub" x="735" y="330">rt serve reads staging, never raw</text>
+    </svg>
+  </div>
+
+  <div class="tablewrap">
+    <table id="tables">
+      <thead><tr><th>Table</th><th>Grain</th><th>Columns</th><th>Source · cadence</th></tr></thead>
+      <tbody>
+        <tr><td class="k"><code>staging.instruments</code></td><td>one row per symbol</td><td><code>symbol, type (etf|stock|index|future|fx|crypto|fred|basket), name, currency, exchange, first_date, last_date, source, why (proxy|constituent|named)</code></td><td>built from <code>instruments.yaml</code> and the lists · daily</td></tr>
+        <tr><td class="k"><code>staging.prices_daily</code></td><td>symbol × trading day</td><td><code>symbol, date, open, high, low, close, adj_close, volume</code>; both closes kept</td><td>Yahoo · daily, ≈ 750 rows a day, ≈ 2.3 M back to 2015</td></tr>
+        <tr><td class="k"><code>staging.actions</code></td><td>symbol × event day</td><td><code>symbol, date, dividend, split_ratio</code></td><td>Yahoo · daily</td></tr>
+        <tr><td class="k"><code>staging.series_daily</code></td><td>series × observation</td><td><code>series_id, date, value, freq (d|w|m), asof</code>; latest vintage; <code>_vintages</code> keeps all</td><td>FRED · daily, 18 series</td></tr>
+        <tr><td class="k"><code>staging.baskets</code> · <code>basket_prices_daily</code></td><td>basket × member · basket × day</td><td><code>basket_id, symbol, weight, from, to</code> · <code>basket_id, date, value</code> (equal weight, total return via adj_close, rebased 100, rebalanced monthly, a member joins when its history starts)</td><td>dbt from <code>baskets.yaml</code> · daily</td></tr>
+        <tr><td class="k"><code>staging.constituents</code></td><td>index × symbol × snapshot</td><td><code>index_id (spx|ndx), symbol, gics_sector, gics_sub_industry, snapshot_date, date_added</code></td><td>the two public lists · monthly snapshot (change history phase 2)</td></tr>
+        <tr><td class="k"><code>staging.holdings</code></td><td>etf × symbol × date</td><td><code>etf, date, symbol, weight</code></td><td>issuer files · weekly · <span class="badge info">phase 2</span></td></tr>
+        <tr><td class="k"><code>rt.asset_proxies</code> (in rotation)</td><td>asset × symbol</td><td><code>asset_id, symbol, role (primary|companion), from, to, note</code>; replaces the single <code>proxy</code> column so Bonds &amp; yields can hold DGS10 and TLT</td><td><code>assets/proxies.yaml</code> via <code>rt assets seed</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="central-db">How the database works with nmp-central-ai</h3>
+  <p class="sub">One database per project on the shared Postgres 16 cluster (platform decision D13). Nothing here is new machinery: it is the path <code>propertyiq_getdata</code> (P7) already walks, with the names changed.</p>
+  <div class="tablewrap">
+    <table id="db-steps">
+      <thead><tr><th>Step</th><th>Command or file</th><th>Runs as</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td class="k">1 · Register</td><td><code>registry/projects.yaml</code> entry P12</td><td>you, by PR to nmp-central-ai</td><td>Declares database <code>market</code>, roles <code>market_owner</code> and <code>market_ro</code>, the three env names, and the <code>migrate</code> and <code>smoke</code> commands. The rotation-tracker entry gains <code>extensions: [postgres_fdw]</code>, because the wrapper lives in the consumer's database. Not edited until you say go.</td></tr>
+        <tr><td class="k">2 · Provision</td><td><code>make -C nmp-central-ai db-init</code></td><td><code>nmp</code></td><td>Creates the database and both roles, writes the P12 block to <code>.db-urls.env</code>, adds a DbGate connection fenced to <code>market</code>. The block is pasted into <code>market-getdata/.env</code>, which git ignores.</td></tr>
+        <tr><td class="k">3 · Own schemas</td><td><code>market-getdata db init</code></td><td><code>nmp</code>, once, inside <code>market</code> only</td><td>Schemas <code>raw</code>, <code>staging</code>, <code>meta</code> owned by <code>market_owner</code>. <code>market_ro</code> reads <code>staging</code> and <code>meta</code>, never <code>raw</code>. Default privileges keep new staging tables readable.</td></tr>
+        <tr><td class="k">4 · Load daily</td><td><code>scripts/update.sh</code> from launchd</td><td><code>market_owner</code></td><td>Fetch, then <code>db update</code>: changed partitions to <code>raw</code> by COPY, <code>dbt build</code>, one row in <code>meta.pipeline_runs</code>. Then <code>audit</code>.</td></tr>
+        <tr><td class="k">5 · Consume</td><td><code>sql/00x_market_fdw.sql</code> in rotation-tracker</td><td><code>nmp</code>, inside <code>rotation</code></td><td>Creates <code>postgres_fdw</code>, a server <code>market</code>, a user mapping as <code>market_ro</code>, and imports <code>staging</code> as <code>market_staging</code>. Host and password come from the environment, as in data-qa-agent's migration <code>0040</code>. Both databases share one container, so it is a loopback connection.</td></tr>
+        <tr><td class="k">6 · Verify</td><td><code>make check ARGS="--only P12"</code></td><td>every role</td><td>Connects as each role and runs <code>db smoke</code>: no network, no LLM.</td></tr>
+        <tr><td class="k">7 · Protect</td><td><code>make db-backup DB=market</code></td><td><code>nmp</code></td><td>Before anything destructive. Rule 7 holds: no postgres service in either compose file, never <code>DROP DATABASE</code>, a reset drops only market's own schemas.</td></tr>
+        <tr><td class="k">8 · CI</td><td>throwaway <code>pgvector/pgvector:pg16</code></td><td>the CI job</td><td>Runs <code>db init</code> on synthetic fixtures. <code>db export-fixture</code> gives rotation-tracker a small <code>market_staging</code> fixture for its own CI.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small">After step 5 the join is plain SQL inside <code>rotation</code>: mentions to <code>rt.asset_proxies</code> to <code>market_staging.prices_daily</code>. When market adds a table, re-run the import.</p>
+  <h3>Sizing and cadence</h3>
+  <ul class="cols2">
+    <li><b>Backfill.</b> Proxies, indexes and FRED series from their first date (71 of 89 proxies start before 2015; ^IRX from 1960). The 518 constituents and his named stocks from <b>2015-01-01</b>: eight years before the first wrap, enough for any lookback the measurement will want, and 314 of today's 503 S&amp;P 500 members were already in the index by then (371 by 2018, 424 by 2022), so the list is still mostly the index he talks about. About 2.3 M price rows, ≈ 300 MB with indexes. The probe today pulled 89 full histories in under two minutes with a 0.3 s pause; the full backfill is 15 to 25 minutes.</li>
+    <li><b>Daily.</b> <code>yfinance.download()</code> in batches of 100 symbols: about ten requests, 750 rows, a few seconds. FRED: 18 small CSVs. <code>db update</code> copies only partitions whose sha256 changed (the current year's file per symbol), then <code>dbt build</code>.</li>
+    <li><b>When.</b> US cash close is 16:00 New York, 07:00 or 08:00 Sydney the next morning. A <b>09:00 Sydney</b> run every day catches it; weekends and US holidays land nothing and exit clean. launchd on this Mac, the pattern productivity-tracker already uses (<code>~/Library/LaunchAgents/com.nmp-dsci.pt-refresh.plist</code>): <code>com.nmp-dsci.market-update.plist</code>, log under <code>~/.market/</code>. Weekly, Saturday: constituents and (later) holdings.</li>
+    <li><b>Audit.</b> <code>market-getdata audit</code> lists symbols whose last price is more than three business days old, series whose vintage did not advance in a week, baskets with a missing member, and the resolver's new unknown symbols. Printed, and written to <code>meta.pipeline_runs</code>.</li>
+    <li><b>Secrets.</b> None for Yahoo or FRED. The database URL is the P12 block of <code>nmp-central-ai/.db-urls.env</code> pasted into <code>.env</code>, as every project does; never hardcoded. <code>data/</code> is gitignored: prices are never committed, in either repo.</li>
+  </ul>
+</section>
+
+<section id="join">
+  <span class="eyebrow">How the two repos meet</span>
+  <h2>The tracker stays about the channel; it reads prices, it never fetches them</h2>
+  <div class="split">
+    <div>
+      <h3>In rotation-tracker, this branch</h3>
+      <ul>
+        <li><code>assets/proxies.yaml</code> (v2): every asset's primary series and companions, typed. <code>rt assets seed</code> writes <code>rt.asset_proxies</code>; the old <code>proxy</code> column stays as the primary's symbol for compatibility.</li>
+        <li><code>assets/components.yaml</code>: GICS sub-industry → category. <code>rt assets components &lt;id&gt;</code> prints a category's three lists.</li>
+        <li><code>sql/00x_market_fdw.sql</code>: <code>CREATE EXTENSION postgres_fdw</code> (declared in the registry for <code>rotation</code>), server <code>market</code>, user mapping <code>market_ro</code>, <code>IMPORT FOREIGN SCHEMA staging … INTO market_staging</code>. Run by <code>rt db migrate</code>.</li>
+        <li>Viewer: the Chart row gains the price line under the mention lines on the same x scale (view <code>assets</code> first; the keyword view maps through the table above); the Asset page gains "Components" and "Priced by IGV since 2001". <code>/api/chart</code> and <code>/api/assets/:id</code> read <code>market_staging</code> through the store, with a fixture-backed fake in tests. The design lint stays green: price lines use <code>--accent</code>, stance keeps green and red.</li>
+        <li><code>rt assets export-symbols</code> writes the list the feed should fetch, committed into <code>market-getdata/instruments/rotation-tracker.txt</code>, so the feed never imports tracker code.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Not in this branch</h3>
+      <ul>
+        <li>Measuring calls against prices (forward returns at 1, 4, 13, 26 and 52 weeks from the Monday open after the wrap, against SPY; the rotation in/out sign check). That is the branch after this one, on the tables this one creates.</li>
+        <li>Issuer holdings, constituent change history, net liquidity, CoinGecko totals: phase 2 of the feed, its own branch in <code>market-getdata</code>.</li>
+        <li>Miner validation (the fresh gold draw you deferred on 30 Oct) stays deferred.</li>
+      </ul>
+      <h3>Done when</h3>
+      <ul>
+        <li>Every Chart row has a price line, every mined asset with ≥ 1 mention has a primary series or an explicit <i>none</i> with its reason, and two consecutive mornings have landed with no hand on the keyboard.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="build">
+  <span class="eyebrow">Build order on <code>prices</code> and in the new repo</span>
+  <h2>Ten steps, each with a done-when</h2>
+  <div class="steps">
+    <div class="step" id="b1"><b>Decide</b>The six choices at the bottom of this page. The recommended options are what the steps below assume.<span class="tag">done when the answers are back and this page shows them as decided</span></div>
+    <div class="step" id="b2"><b>proxies/v2 in rotation-tracker</b><code>assets/proxies.yaml</code> with typed series and companions for all 321 mined assets (the 23 fills above, the Bonds &amp; yields pair, the two yield-spread assets as new rows with aliases); <code>assets/components.yaml</code>; <code>sql/003_proxies.sql</code> for <code>rt.asset_proxies</code>; <code>rt assets seed</code> and <code>rt assets export-symbols</code>.<span class="tag">done when a test proves every asset with a mention resolves to a series or a reasoned none, and the export lists ≈ 750 symbols</span></div>
+    <div class="step" id="b3"><b>market-getdata scaffold, the propertyiq_getdata setup one for one</b>New public repo under nmp-dsci. Copy <code>core/</code>, <code>db/</code>, <code>dbt/</code> and the CLI shape from propertyiq_getdata; registry P12 (<code>market</code>, <code>market_owner</code>, <code>market_ro</code>, <code>ui: {hue: …}</code> if one is free); <code>make db-init</code>; <code>.env</code> from <code>.db-urls.env</code>; <code>db init</code>; a zero-cost <code>db smoke</code>.<span class="tag">done when <code>make check ARGS="--only P12"</code> passes in nmp-central-ai</span></div>
+    <div class="step" id="b4"><b>sources/yahoo.py</b>value-invest-agent's fetcher reshaped to partitions: <code>normalized/yahoo/prices/symbol=&lt;s&gt;/year=&lt;y&gt;.csv</code> and <code>normalized/yahoo/actions/symbol=&lt;s&gt;.csv</code>; batched <code>download()</code>; the instrument list from <code>instruments/*.txt</code>; LoadSpecs; <code>stg_instruments</code>, <code>stg_prices_daily</code>, <code>stg_actions</code> with dbt tests (unique symbol+date, adj_close ≤ close only when a dividend exists, no future dates).<span class="tag">done when the backfill lands ≈ 750 symbols, row counts match the manifests and every proxy's first date matches today's probe</span></div>
+    <div class="step" id="b5"><b>sources/fred.py</b>The 18 series as <code>asof=</code> snapshots written only when the content changed (the ABS rule); <code>stg_series_daily</code> and <code>_vintages</code>.<span class="tag">done when every series is present and its last observation is within two business days</span></div>
+    <div class="step" id="b6"><b>Baskets and constituents</b><code>baskets.yaml</code> (defensives, cyclicals, mag7, crypto, alts, hardware, meme); <code>stg_basket_prices_daily</code>; the S&amp;P 500 and Nasdaq-100 fetchers moved here from the tracker's <code>universe.py</code> as a monthly snapshot into <code>stg_constituents</code>.<span class="tag">done when each basket has a daily value back to its earliest member and a test reproduces one month's value by hand</span></div>
+    <div class="step" id="b7"><b>Schedule and audit</b><code>scripts/install-launchd.sh</code> writes the two plists; <code>market-getdata update</code> is idempotent and exits clean on a market holiday; <code>audit</code> as above.<span class="tag">done when two consecutive mornings land unattended and audit is clean</span></div>
+    <div class="step" id="b8"><b>fdw and viewer</b><code>sql/00x_market_fdw.sql</code>; the store reads <code>market_staging</code>; Chart price line; Asset components and "priced by"; tests with a fake market store and synthetic series.<span class="tag">done when every Chart row shows a price line on the shared x scale, <code>lint:design</code> passes and the viewer still boots with the feed database absent (a clear notice, not a crash)</span></div>
+    <div class="step" id="b9"><b>Docs and PRs</b><code>ai_specs/s03_prices.md</code> here as the plan of record; AGENTS.md and README in both repos; the platform registry note; <code>/no-mistakes</code> on each; PRs to <code>main</code>.<span class="tag">done when a fresh clone of each repo with its <code>.env</code> reproduces the audit and the Chart</span></div>
+    <div class="step" id="b10"><b>Phase 2, its own branch</b>Issuer holdings, constituent change history, net liquidity, CoinGecko totals; then the measurement branch.<span class="tag">not in scope here; listed so it is not forgotten</span></div>
+  </div>
+</section>
+
+<section id="risks">
+  <span class="eyebrow">Risks and failure modes</span>
+  <h2>What can go wrong, and the guard for each</h2>
+  <div class="tablewrap">
+    <table id="risk-table">
+      <thead><tr><th>Risk</th><th>What it would do</th><th>Guard</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Yahoo is unofficial</td><td>yfinance scrapes an undocumented API; it has broken for days before, and bulk pulls get rate-limited.</td><td>Batched requests with a pause; <code>audit</code> flags staleness; the loader is source-agnostic, so a second source (Stooq's free CSV, or Tiingo with a free key) is one more <code>sources/</code> module writing the same partitions.</td></tr>
+        <tr><td class="k">A proxy starts late</td><td>MAGS (Apr 2023), IBIT (Jan 2024), WGMI (Feb 2022), TRUMP (Jan 2025) have no price for early wraps; a naive join scores those calls as zero.</td><td>Baskets for mag7 and crypto; <code>asset_proxies.from</code> is explicit; the measurement joins on date ≥ from and reports calls it could not price rather than dropping them silently.</td></tr>
+        <tr><td class="k">Survivorship</td><td>Today's S&amp;P 500 list is not 2023's; a component list drawn from it flatters the index.</td><td>Dated constituent snapshots from day one; the change-history table in phase 2 extends them backwards.</td></tr>
+        <tr><td class="k">Adjusted vs unadjusted</td><td>Scoring a 2024 NVDA call on post-split adjusted prices is right for returns and wrong for "it was at $900".</td><td>Both closes stored; splits and dividends as rows; the measurement uses adj_close for returns and close for quoted levels.</td></tr>
+        <tr><td class="k">Revisions</td><td>FRED revises claims and CPI; a backtest that reads today's values saw numbers nobody had at the time.</td><td><code>asof=</code> vintages appended, never edited, same as the ABS series; the point-in-time read takes the vintage available on the call's date.</td></tr>
+        <tr><td class="k">Symbol drift</td><td>Tickers change (FB → META), spin-offs appear (SNDK, Feb 2025), ADRs delist.</td><td><code>instruments</code> keeps <code>first_date</code> and <code>last_date</code>; <code>audit</code> lists symbols that stopped; a delisted name keeps its rows.</td></tr>
+        <tr><td class="k">Timezones</td><td>Yahoo dates are exchange-local; FRED dates are US; a wrap is published on a Sydney Saturday.</td><td>All dates stored as calendar dates in the exchange's zone; the tradable-at rule (Monday open) lives in one function in the tracker and is tested.</td></tr>
+        <tr><td class="k">Two public repos</td><td>A price file or a manifest with 2.3 M rows ends up in git.</td><td><code>data/</code> gitignored in market-getdata; the tracker holds only yaml and SQL; tests use synthetic fixtures; CI uses the throwaway Postgres service the platform prescribes.</td></tr>
+        <tr><td class="k">The Mac is asleep</td><td>A launchd job on a laptop misses mornings.</td><td>Idempotent <code>update</code> catches up on the next run (Yahoo returns the missing days); <code>audit</code> says how far behind. Moving the job to the platform's AWS stack is configuration only, once that exists.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="decide">
+  <span class="eyebrow">Decisions</span>
+  <h2>Six choices before the build starts</h2>
+  <p class="sub">The recommended option is first in each. Pick, add a note if you like, and queue each answer; send them all at once with "Send to agent". If you opened this file without Lavish, "Copy all answers" at the bottom gives you text to paste back.</p>
+  <div class="split">
+    <div>
+      <form class="q card" data-lavish-question="home" onsubmit="event.preventDefault(); const f=new FormData(event.currentTarget); const c=f.get('home'); if(!c) return; window.lavish.queuePrompt('Pipeline home decision: '+c+'. Notes: '+(f.get('note')||'none'), {tag:'choice', text:'Home: '+c, element:event.currentTarget, data:{question:'home', answer:c, note:f.get('note')}});">
+        <h3>1 · Where the price pipeline lives <span class="badge info">answered in review: A, same setup as propertyiq_getdata</span></h3>
+        <label><input type="radio" name="home" value="A: new sibling repo market-getdata, database market on the central Postgres, consumers read staging over postgres_fdw" checked> A · New sibling <code>market-getdata</code>, database <code>market</code> <span class="badge rec">recommended</span></label>
+        <label><input type="radio" name="home" value="B: extend propertyiq_getdata with yahoo and fred sources, landing in database propertyiq"> B · Extend <code>propertyiq_getdata</code>, land in <code>propertyiq</code></label>
+        <label><input type="radio" name="home" value="C: inside rotation-tracker as rt.prices, as the s00 plan said"> C · Inside rotation-tracker as <code>rt.prices</code></label>
+        <div class="row"><textarea name="note" placeholder="A different repo name, or a reason to prefer B or C"></textarea><button type="submit" class="btn">Queue this answer</button></div>
+      </form>
+      <form class="q card" data-lavish-question="universe" onsubmit="event.preventDefault(); const f=new FormData(event.currentTarget); const c=f.get('universe'); if(!c) return; window.lavish.queuePrompt('Price universe decision: '+c+'. Notes: '+(f.get('note')||'none'), {tag:'choice', text:'Universe: '+c, element:event.currentTarget, data:{question:'universe', answer:c, note:f.get('note')}});">
+        <h3>2 · What we price every day</h3>
+        <label><input type="radio" name="universe" value="all proxies, every S&P 500 and Nasdaq-100 constituent, and every stock or ETF he has ever named: about 750 symbols" checked> Proxies + S&amp;P 500 ∪ Nasdaq-100 + every name he says, ≈ 750 <span class="badge rec">recommended</span></label>
+        <label><input type="radio" name="universe" value="proxies plus only the stocks and ETFs he has named: about 250 symbols, no constituent lists"> Proxies + his names only, ≈ 250 (no component lists beyond what he says)</label>
+        <label><input type="radio" name="universe" value="proxies plus every US-listed common stock and fund in rt.assets: about 11,700 symbols"> Proxies + every US listing, ≈ 11,700 (an hour a day on Yahoo; not advised)</label>
+        <div class="row"><textarea name="note" placeholder="Other indexes to add (Russell 2000 members, S&P 400) or symbols you want in from day one"></textarea><button type="submit" class="btn">Queue this answer</button></div>
+      </form>
+      <form class="q card" data-lavish-question="history" onsubmit="event.preventDefault(); const f=new FormData(event.currentTarget); const c=f.get('history'); if(!c) return; window.lavish.queuePrompt('Price history decision: '+c+'. Notes: '+(f.get('note')||'none'), {tag:'choice', text:'History: '+c, element:event.currentTarget, data:{question:'history', answer:c, note:f.get('note')}});">
+        <h3>3 · How far back</h3>
+        <label><input type="radio" name="history" value="proxies, indexes and FRED series from their first available date; constituents and named stocks from 2015-01-01" checked> Proxies and series from their first date; stocks from 2015 <span class="badge rec">recommended</span></label>
+        <label><input type="radio" name="history" value="everything, proxies included, from 2015-01-01 (one rule; loses the pre-2015 regimes for the proxies)"> Everything from 2015, one rule for all</label>
+        <label><input type="radio" name="history" value="everything from 2018-01-01 (five years before the first wrap)"> Everything from 2018</label>
+        <label><input type="radio" name="history" value="everything from 2022-01-01 (one year before the first wrap), extend later if needed"> Everything from 2022, extend later</label>
+        <div class="row"><textarea name="note" placeholder="A lookback you know the measurement will want"></textarea><button type="submit" class="btn">Queue this answer</button></div>
+      </form>
+    </div>
+    <div>
+      <form class="q card" data-lavish-question="fills" onsubmit="event.preventDefault(); const f=new FormData(event.currentTarget); const c=f.get('fills'); if(!c) return; window.lavish.queuePrompt('Gap-fill decision: '+c+'. Notes: '+(f.get('note')||'none'), {tag:'choice', text:'Fills: '+c, element:event.currentTarget, data:{question:'fills', answer:c, note:f.get('note')}});">
+        <h3>4 · The 23 fills</h3>
+        <label><input type="radio" name="fills" value="accept the fills table as proposed: yahoo, fred and basket types, five explicit none" checked> Accept the table as proposed <span class="badge rec">recommended</span></label>
+        <label><input type="radio" name="fills" value="accept the table with the changes in the note"> Accept with changes (say which rows in the note)</label>
+        <label><input type="radio" name="fills" value="tickers only: no FRED series and no baskets; leave macro assets unpriced"> Tickers only; leave the macro words unpriced</label>
+        <div class="row"><textarea name="note" placeholder="e.g. defensives should include XLRE; recession should be T10Y2Y; price crypto the market with CoinGecko now"></textarea><button type="submit" class="btn">Queue this answer</button></div>
+      </form>
+      <form class="q card" data-lavish-question="cadence" onsubmit="event.preventDefault(); const f=new FormData(event.currentTarget); const c=f.get('cadence'); if(!c) return; window.lavish.queuePrompt('Cadence decision: '+c+'. Notes: '+(f.get('note')||'none'), {tag:'choice', text:'Cadence: '+c, element:event.currentTarget, data:{question:'cadence', answer:c, note:f.get('note')}});">
+        <h3>5 · Cadence and scheduler</h3>
+        <label><input type="radio" name="cadence" value="daily at 09:00 Sydney via launchd on this Mac, weekly Saturday for lists and holdings" checked> Daily 09:00 Sydney, launchd on this Mac; lists weekly <span class="badge rec">recommended</span></label>
+        <label><input type="radio" name="cadence" value="weekly on Saturday morning only, after the wrap"> Weekly, Saturday morning after the wrap</label>
+        <label><input type="radio" name="cadence" value="GitHub Actions cron (needs a reachable database; the central Postgres is local-only today, so this waits for the AWS stack)"> GitHub Actions cron (waits for a hosted database)</label>
+        <div class="row"><textarea name="note" placeholder="A time that suits, or a machine other than this one"></textarea><button type="submit" class="btn">Queue this answer</button></div>
+      </form>
+      <form class="q card" data-lavish-question="components" onsubmit="event.preventDefault(); const f=new FormData(event.currentTarget); const c=f.get('components'); if(!c) return; window.lavish.queuePrompt('Components decision: '+c+'. Notes: '+(f.get('note')||'none'), {tag:'choice', text:'Components: '+c, element:event.currentTarget, data:{question:'components', answer:c, note:f.get('note')}});">
+        <h3>6 · Where a category's components come from</h3>
+        <label><input type="radio" name="components" value="GICS sub-industries plus the names he says now; issuer ETF holdings in phase 2" checked> GICS + his names now; issuer holdings in phase 2 <span class="badge rec">recommended</span></label>
+        <label><input type="radio" name="components" value="issuer ETF holdings in this branch too (three scrapers: State Street, iShares, VanEck)"> Holdings in this branch too (three issuer scrapers)</label>
+        <label><input type="radio" name="components" value="GICS only; do not rank by what he says"> GICS only</label>
+        <div class="row"><textarea name="note" placeholder="Categories whose components matter most to you"></textarea><button type="submit" class="btn">Queue this answer</button></div>
+      </form>
+      <form class="q card" data-lavish-question="other" onsubmit="event.preventDefault(); const f=new FormData(event.currentTarget); const c=(f.get('note')||'').trim(); if(!c) return; window.lavish.queuePrompt('Other notes on the prices plan: '+c, {tag:'note', text:'Other: '+c.slice(0,80), element:event.currentTarget, data:{question:'other', note:c}});">
+        <h3>Anything else</h3>
+        <div class="row"><textarea name="note" placeholder="Assets you expected to see, a source you prefer, a different order of work"></textarea><button type="submit" class="btn">Queue this note</button></div>
+      </form>
+    </div>
+  </div>
+  <div class="copyrow">
+    <button type="button" class="btn" onclick="(async (btn) => {
+      const copyRun = btn._lavishCopyRun = (btn._lavishCopyRun || 0) + 1;
+      const qs = [...document.querySelectorAll('[data-lavish-question]')];
+      const status = btn.parentElement.querySelector('[data-lavish-copy-all-status]');
+      btn.parentElement.querySelector('[data-lavish-copy-all-manual]')?.remove();
+      const out = [];
+      for (const q of qs) {
+        const key = q.getAttribute('data-lavish-question')?.trim() || 'Question';
+        const lines = [];
+        for (const el of q.querySelectorAll('input, select, textarea')) {
+          if (el.matches(':disabled')) continue;
+          if (el.closest('[data-lavish-question]') !== q) continue;
+          const isChoice = el.matches('input[type=checkbox], input[type=radio]');
+          if (isChoice && !el.checked) continue;
+          if (el.matches('input[type=button], input[type=submit], input[type=reset], input[type=image], input[type=hidden], input[type=file], input[type=range], input[type=color]')) continue;
+          let vals;
+          if (el instanceof HTMLSelectElement) {
+            vals = [...el.selectedOptions].filter((o) => !o.disabled && !o.closest('optgroup[disabled]')).map((o) => o.value.trim()).filter(Boolean);
+          } else {
+            const v = isChoice && (!el.hasAttribute('value') || !el.value.trim())
+              ? el.labels?.[0]?.textContent?.trim() || el.getAttribute('aria-label')?.trim() || el.name || ''
+              : el.value.trim();
+            vals = v ? [v] : [];
+          }
+          const label = el.name || el.labels?.[0]?.textContent?.trim() || el.getAttribute('aria-label')?.trim() || el.getAttribute('placeholder')?.trim() || el.tagName.toLowerCase();
+          for (const v of vals) lines.push('  ' + label + ': ' + v.split('\n').join('\n    '));
+        }
+        if (lines.length) out.push(key + ':\n' + lines.join('\n'));
+      }
+      const text = out.join('\n\n');
+      if (!text) { status.textContent = qs.length ? 'No answers to copy yet.' : 'No questions or answers to copy.'; return; }
+      status.textContent = '';
+      try {
+        if (typeof navigator.clipboard?.writeText !== 'function') throw new Error('Clipboard API unavailable');
+        await navigator.clipboard.writeText(text);
+        if (copyRun !== btn._lavishCopyRun) return;
+        status.textContent = 'Answers copied.'; return;
+      } catch {}
+      if (copyRun !== btn._lavishCopyRun) return;
+      const tmp = document.createElement('textarea');
+      tmp.value = text; tmp.readOnly = true; tmp.setAttribute('aria-hidden', 'true');
+      tmp.style.position = 'fixed'; tmp.style.left = '-10000px';
+      document.body.append(tmp); tmp.focus(); tmp.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch {}
+      tmp.remove();
+      if (ok) { status.textContent = 'Answers copied.'; return; }
+      const man = document.createElement('textarea');
+      man.value = text; man.readOnly = true; man.rows = Math.min(12, Math.max(3, text.split('\n').length));
+      man.setAttribute('aria-label', 'Answers to copy manually'); man.dataset.lavishCopyAllManual = '';
+      btn.insertAdjacentElement('afterend', man); man.focus(); man.select();
+      status.textContent = 'Clipboard unavailable. Copy the answers below manually.';
+    })(this)">Copy all answers</button>
+    <span data-lavish-copy-all-status role="status" aria-live="polite" class="small muted"></span>
+  </div>
+</section>
+
+<footer style="margin-top:var(--s8)">
+  <p class="small">Sources, all read-only and all 30 to 31 Oct 2026: <code>rt.mentions</code>, <code>rt.mention_assets</code>, <code>rt.assets</code> and <code>rt.videos</code> in database <code>rotation</code> (18,960 mentions, 199 wraps from 7 Jan 2023 to 24 Oct 2026, 23,463 asset rows, 321 assets with mentions, 11,763 in the map); <code>information_schema</code> of the nine databases on the central Postgres (the only stock prices are DataAgentBench's 2,755 frozen benchmark tables in <code>dab</code>); <code>propertyiq_getdata</code> (README, AGENTS.md, <code>db/registry.py</code>, <code>scripts/update_data_and_push.sh</code>), <code>value-invest-agent</code> (<code>market/yahoo.py</code>, <code>market/fred.py</code>, <code>market/load.py</code>), <code>nmp-central-ai/registry/projects.yaml</code> and <code>data-qa-agent</code>'s migration 0040; a live <code>yfinance</code> probe of all 89 proxies plus 15 candidates (every one answered; first dates as listed) and a live fetch of 21 FRED series; the running viewer's <code>/api/chart?view=assets</code> for the mention lines and quarter-end closes of IGV, SMH and SPY for the mock. Styled with the portfolio house UI (<code>house.css</code> unedited, <code>project.css</code> at the provisional hue 15).</p>
+</footer>
+
+</main>
+</body>
+</html>
