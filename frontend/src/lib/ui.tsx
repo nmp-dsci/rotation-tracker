@@ -5,8 +5,8 @@
  */
 import { type ReactNode, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { ChartEntry, Week } from './api';
-import { DASH, TOPIC_LABEL, type ThumbSize, date, dur, perWrap, quarter, thumb } from './format';
+import type { ChartEntry, PriceLine, Week } from './api';
+import { DASH, TOPIC_LABEL, type ThumbSize, date, dur, level, perWrap, quarter, thumb } from './format';
 
 // ── states ────────────────────────────────────────────────────────────────
 export function ErrorNote({ error, what }: { error: string; what?: string }) {
@@ -228,11 +228,17 @@ export function Spark({
   );
 }
 
-/** The key to a Spark's three lines, drawn with the same strokes. */
-export function SparkKey({ unit = 'mentions' }: { unit?: string }) {
+/** The key to a Spark's three lines, drawn with the same strokes; and to the price strip. */
+export function SparkKey({ unit = 'mentions', price = false }: { unit?: string; price?: boolean }) {
   const swatch = (cls: string) => (
     <svg className="spark-swatch" viewBox="0 0 20 8" aria-hidden="true">
       <line className={cls} x1={1} x2={19} y1={4} y2={4} />
+    </svg>
+  );
+  const area = (
+    <svg className="spark-swatch" viewBox="0 0 20 8" aria-hidden="true">
+      <polygon className="px-area" points="1,3 19,1 19,8 1,8" />
+      <line className="px" x1={1} x2={19} y1={3} y2={1} />
     </svg>
   );
   return (
@@ -240,6 +246,100 @@ export function SparkKey({ unit = 'mentions' }: { unit?: string }) {
       <span>{swatch('all')} all {unit}</span>
       <span>{swatch('up')} ▲ in bullish calls</span>
       <span>{swatch('down')} ▼ in bearish calls</span>
+      {price && (
+        <>
+          <span>{area} price, its own scale</span>
+          <span>{swatch('ref')} 100 at the start, or zero</span>
+        </>
+      )}
+    </span>
+  );
+}
+
+/**
+ * s03: a row's price, in its own strip under the mention lines: the same x scale (one point per
+ * quarter, the quarter's last close), its own y scale, never a second axis on the Spark. A
+ * performance line (Yahoo, baskets) is rebased to 100 at its first quarter and dashed at 100; a
+ * level (FRED) is in its own units, dashed at zero when it crosses it. Each quarter is a hover
+ * target, as on the Spark.
+ */
+export function PriceStrip({ line, quarters, at, href }: { line: PriceLine; quarters: string[]; at: number; href?: string | null }) {
+  const name = href ? <Link to={href}>{line.label}</Link> : line.label;
+  const head = (right: string, title?: string) => (
+    <span className="price-head">
+      <span className="price-lab">{name}</span>
+      <span title={title}>{right}</span>
+    </span>
+  );
+  if (line.mode === 'none')
+    return <span className="price-strip none">{head('not priced', line.reason ?? undefined)}</span>;
+  const pts = line.points;
+  const known = pts.filter((v): v is number => v != null);
+  if (known.length === 0 || quarters.length < 2 || pts.length !== quarters.length)
+    return <span className="price-strip nodata">{head('no prices yet')}</span>;
+  const perf = line.mode === 'performance';
+  const showRef = perf || (Math.min(...known) < 0 && Math.max(...known) > 0);
+  const ref = perf ? 100 : 0;
+  let lo = Math.min(...known, ...(showRef ? [ref] : []));
+  let hi = Math.max(...known, ...(showRef ? [ref] : []));
+  if (hi - lo < 1e-9) {
+    hi += 1;
+    lo -= 1;
+  }
+  const x = (i: number) => (i * 100) / (quarters.length - 1);
+  const y = (v: number) => 100 - ((v - lo) / (hi - lo)) * 100;
+  // Consecutive quarters with a value; a gap breaks the line. Each run also fills down to the
+  // strip's floor, so the price reads as an area and never as one more stance line.
+  const runs: [number, number][][] = [];
+  let run: [number, number][] = [];
+  pts.forEach((v, i) => {
+    if (v == null) {
+      if (run.length) runs.push(run);
+      run = [];
+    } else run.push([x(i), y(v)]);
+  });
+  if (run.length) runs.push(run);
+  const path = (r: [number, number][]) => r.map(([a, b]) => `${a},${b}`).join(' ');
+  const base = pts.findIndex((v) => v != null);
+  const fmt = (v: number) => (perf ? v.toFixed(0) : level(v));
+  const what = perf ? `rebased, 100 = ${quarter(quarters[base])}` : 'a level';
+  const tip = (v: number | null, i: number) =>
+    `${quarter(quarters[i])}: ${line.label} ${v == null ? 'no price' : fmt(v)} · last close in the quarter, ${what}`;
+  const half = 50 / (quarters.length - 1);
+  const atV = at >= 0 ? pts[at] : null;
+  return (
+    <span
+      className="price-strip"
+      role="img"
+      aria-label={`${line.label}, ${what}: ${pts.map((v, i) => `${quarter(quarters[i])} ${v == null ? 'none' : fmt(v)}`).join('; ')}`}
+    >
+      {head(`${fmt(known[0])} → ${fmt(known[known.length - 1])}`, line.name ?? undefined)}
+      <span className="price-plot">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          {runs.map((r) => (
+            <polygon key={`a${path(r)}`} className="px-area" points={`${path(r)} ${r[r.length - 1][0]},100 ${r[0][0]},100`} />
+          ))}
+          {quarters.map((q, i) =>
+            i > 0 && q.endsWith('-01-01') ? <line key={q} className="year" x1={x(i)} x2={x(i)} y1={0} y2={100} /> : null,
+          )}
+          {showRef && <line className="ref" x1={0} x2={100} y1={y(ref)} y2={y(ref)} />}
+          {runs.map((r) => (
+            <polyline key={path(r)} className="px" points={path(r)} />
+          ))}
+        </svg>
+        {atV != null && <span className="spark-dot" style={{ left: `${x(at)}%`, top: `${y(atV)}%` }} />}
+        {pts.map((v, i) => {
+          const l = Math.max(0, x(i) - half);
+          return (
+            <span
+              key={quarters[i] ?? i}
+              className="spark-hit"
+              style={{ left: `${l}%`, width: `${Math.min(100, x(i) + half) - l}%` }}
+              title={tip(v, i)}
+            />
+          );
+        })}
+      </span>
     </span>
   );
 }

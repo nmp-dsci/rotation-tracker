@@ -100,10 +100,26 @@ export type SearchResult = {
   total: { sections: number; weeks: number; of: number } | null;
 };
 
+/** s03: a row's price strip. One point per chart quarter (its last close), null where the series
+ *  has no value; empty when market_staging has no prices. Performance lines (Yahoo, baskets) are
+ *  rebased to 100 at the first quarter with a value; levels (FRED) are in their own units. */
+export type PriceMode = 'performance' | 'level' | 'none';
+export type PriceLine = {
+  series: string; // typed key: yahoo:SMH, fred:DGS10, basket:mag7, or none
+  label: string; // SMH, DGS10, mag7 basket
+  mode: PriceMode;
+  points: (number | null)[];
+  name: string | null;
+  first_date: string | null;
+  reason: string | null; // why an asset is deliberately unpriced
+};
+
 export type ChartEntry = {
   id: string; // the theme's name, or the asset id on the assets view
   theme: string; // what to show: the theme, or the asset's name
   kind: string | null; // the asset's layer on the assets view
+  asset_id: string | null; // the asset that prices the row (a keyword theme's pinned asset)
+  price: PriceLine | null;
   mentions: number;
   weeks_hit: number;
   rate: number;
@@ -127,6 +143,8 @@ export type Chart = {
   dropped: string[];
   themes: { name: string; pattern: string }[];
   topics: Topic[];
+  prices_available: boolean;
+  prices_notice: string | null;
 };
 
 export type Run = {
@@ -217,6 +235,8 @@ export type AssetRow = {
   gics_sector: string | null;
   sp500: boolean;
   ndx: boolean;
+  series: string | null; // the primary price series (proxies/v2)
+  series_label: string;
   mentions: number;
   weeks: number;
   bullish: number;
@@ -260,6 +280,36 @@ export type AssetDetail = {
   mentions: Mention[];
   total: number;
   by_play: Record<string, number>;
+  priced_by: PricedBy;
+  components: Components;
+};
+/** s03: one rt.asset_proxies row, with its first date from market_staging.instruments. */
+export type PricedSeries = {
+  series: string;
+  label: string;
+  mode: PriceMode;
+  role: 'primary' | 'companion';
+  from_date: string | null;
+  to_date: string | null;
+  note: string | null;
+  name: string | null;
+  first_date: string | null;
+  last_date: string | null;
+};
+export type PricedBy = {
+  primary: PricedSeries | null;
+  companions: PricedSeries[];
+  prices_available: boolean;
+  notice: string | null;
+};
+export type Component = { asset_id: string; ticker: string | null; name: string; sub_industry?: string | null };
+export type Components = {
+  version: string;
+  defined: boolean; // false: components.yaml does not map anything to this asset
+  basis: string[];
+  gics: Component[];
+  named: (Component & { mentions: number; via: string })[];
+  holdings: string;
 };
 export type MineRun = {
   run_id: string;

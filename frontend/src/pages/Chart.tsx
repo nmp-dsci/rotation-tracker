@@ -1,7 +1,7 @@
 import { Link, useSearchParams } from 'react-router-dom';
 import { type Chart, type ChartEntry, api, useGet } from '../lib/api';
 import { DASH, int, perWrap, quarter } from '../lib/format';
-import { Loading, Move, PageHead, Spark, SparkAxis, SparkKey } from '../lib/ui';
+import { Loading, Move, PageHead, PriceStrip, Spark, SparkAxis, SparkKey, Ticks } from '../lib/ui';
 import { KIND_LABEL } from './Assets';
 
 /**
@@ -40,7 +40,8 @@ export function ChartPage() {
             <span className="badge warn">! not a signal</span> <b>Keyword themes</b> count how often each theme came up
             per weekly wrap in the <b>macro & flows</b> and <b>no chapters</b> sections. <b>Assets</b> count{' '}
             <Link to="/mentions">the miner's calls</Link> on each asset per wrap. Green and red split either by the
-            stance of those calls; none of it is checked against prices yet, so nothing here feeds a backtest.
+            stance of those calls. Under each row is the price of the asset that stands for it, on the same time
+            scale; nothing here measures a call against it yet, so nothing feeds a backtest.
           </p>
         </div>
       </PageHead>
@@ -90,6 +91,12 @@ export function ChartPage() {
       ) : (
         <>
           <QuarterPicker data={data} go={(qq) => set({ quarter: qq })} />
+          {!data.prices_available && data.prices_notice && (
+            <div className="callout price-notice" role="status">
+              <span className="badge info">i no prices</span> <Ticks text={data.prices_notice} /> Each row still names
+              the series that will price it.
+            </div>
+          )}
           <p className="small chart-count">
             {int(rows.length)} of {int(data.entries.length)} {view === 'assets' ? 'assets' : 'themes'}, ranked by{' '}
             {unit} per wrap in {quarter(data.quarter)}
@@ -99,7 +106,7 @@ export function ChartPage() {
           <div className="chart-row chart-axis">
             <span className="c-name">
               <span className="c-sub">{view === 'assets' ? 'Calls' : 'Mentions'} per wrap, every quarter</span>
-              <SparkKey unit={unit} />
+              <SparkKey unit={unit} price />
             </span>
             <span className="c-spark">
               <SparkAxis quarters={data.history_quarters} />
@@ -137,6 +144,14 @@ export function ChartPage() {
                       )
                       .join('; ')}`}
                   />
+                  {e.price && (
+                    <PriceStrip
+                      line={e.price}
+                      quarters={data.history_quarters}
+                      at={data.history_quarters.indexOf(data.quarter)}
+                      href={view === 'themes' && e.asset_id ? `/assets/${encodeURIComponent(e.asset_id)}` : null}
+                    />
+                  )}
                 </span>
                 <span className="c-rate">
                   {e.rank === null ? DASH : perWrap(e.rate)}
@@ -162,7 +177,12 @@ export function ChartPage() {
                 call at all.
               </>
             )}{' '}
-            The dot marks {quarter(data.quarter)}; hover a line for any quarter's figures.
+            The dot marks {quarter(data.quarter)}; hover a line for any quarter's figures.{' '}
+            Under each row, in its own strip with its own height scale and the same time scale: the price of the
+            asset that stands for it{view === 'themes' ? ' (each theme is pinned to one asset; its name links to it)' : ''},
+            the primary series in <code>assets/proxies.yaml</code>, at each quarter's last close. Yahoo series and
+            baskets are rebased to 100 at their first quarter (dashed); FRED series are levels in their own units.
+            Prices come from market-getdata, read over postgres_fdw.
             {view === 'themes' && (
               <>
                 {' '}

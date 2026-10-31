@@ -1,6 +1,8 @@
 """What the viewer reads. Every method is a read:
 
 - Postgres schema ``rt`` as ``rotation_ro`` (read-only transactions);
+- from s03, ``market_staging`` (market-getdata's prices over postgres_fdw) on the same connection,
+  through ``market/prices.py``; absent or empty, every page still renders, with a notice;
 - transcript·lab's Chroma store, through its SQLite file opened read-only (``chroma.py``);
 - the central MLflow, for run links and the ingest runs' metrics;
 - Supadata's free ``GET /v1/me``, for the credit balance (never a key).
@@ -19,6 +21,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import asdict
 from datetime import UTC, date, datetime
+from functools import partial
 from typing import Any
 
 import psycopg
@@ -26,6 +29,8 @@ from psycopg.rows import dict_row
 
 from rotation_tracker import db, pipeline, supadata
 from rotation_tracker.config import ROOT, settings
+from rotation_tracker.market import components, prices
+from rotation_tracker.market.proxies import NONE
 from rotation_tracker.mining.run import PRODUCTION
 from rotation_tracker.serving import mining, themes
 from rotation_tracker.serving.chroma import Chroma
@@ -283,13 +288,19 @@ def _credits() -> list[dict[str, Any]]:
 
 
 class Store:
-    def __init__(self) -> None:
+    def __init__(self, market: prices.Market | None = None) -> None:
         self.mlflow = Mlflow()
         self._credits = _Cached(600, _credits)
         self._themes = _Cached(600, self._theme_counts)  # the corpus changes once a week
         self._assets = _Cached(600, self._asset_counts)  # ... and the miner with it
         self.chroma = Chroma(settings().transcript_lab_chroma)
         self.code_sha = git_sha()
+        # s03: prices from market-getdata (market_staging over postgres_fdw), loaded weekly
+        self.market: prices.Market = market or prices.MarketStaging(self._con)
+        self._market = _Cached(60, self.market.status)
+        self._prices = {
+            v: _Cached(600, partial(self._price_lines, v)) for v in ("themes", "assets")
+        }
 
     # ── plumbing ──────────────────────────────────────────────────────────────
     @contextmanager
@@ -474,10 +485,43 @@ class Store:
             "bearish": bearish, "names": names,
         }  # fmt: skip
 
+    def market_status(self) -> tuple[bool, str | None]:
+        got, error = self._market.get()
+        return got if got is not None else (False, f"Prices unavailable: {error}")
+
+    def _price_lines(self, view: str) -> dict[str, Any]:
+        """Every chart row's price strip for a view: its asset's primary series, one point per
+        quarter on the chart's x scale (empty when market_staging has no prices)."""
+        counts, error = (self._assets if view == "assets" else self._themes).get()
+        if counts is None:
+            raise RuntimeError(error)
+        quarters = sorted(counts["weeks"])
+        ids = list(counts["mentions"]) if view == "assets" else list(themes.ASSET_OF.values())
+        with self._con() as con:
+            rows = prices.proxy_rows(con, ids)
+        primary = {a: r[0] for a, r in rows.items() if r and r[0]["role"] == "primary"}
+        wanted = sorted({r["series"] for r in primary.values() if r["series"] != NONE})
+        ok, notice = self.market_status()
+        closes: dict[str, dict[date, float]] = {}
+        info: dict[str, dict[str, Any]] = {}
+        if ok and quarters:
+            closes = self.market.quarter_closes(wanted, quarters[0])
+            info = self.market.instruments(wanted)
+        lines = {
+            a: prices.line(
+                r["series"], closes.get(r["series"]), quarters, info.get(r["series"]),
+                reason=r["note"] if r["series"] == NONE else None,
+            )
+            for a, r in primary.items()
+        }  # fmt: skip
+        return {"lines": lines, "available": ok, "notice": notice}
+
     def chart(self, quarter: date | None, view: str = "themes") -> dict[str, Any]:
         counts, error = (self._assets if view == "assets" else self._themes).get()
         if counts is None:
             raise RuntimeError(error)
+        priced, price_error = self._prices["assets" if view == "assets" else "themes"].get()
+        lines: dict[str, Any] = (priced or {}).get("lines", {})
         weeks: dict[date, int] = counts["weeks"]
         quarters = sorted(weeks)
         today = date.today()
@@ -504,15 +548,23 @@ class Store:
             "history_quarters": quarters,
             "weeks_in_quarter": weeks[quarter],
             # On the assets view an entry is ranked by id; it carries the asset's name and kind.
+            # Either view: the asset that prices the row (a theme's pin) and its price strip.
             "entries": [
                 {
                     **asdict(e),
                     "id": e.theme,
                     "theme": names.get(e.theme, (e.theme, None))[0],
                     "kind": names.get(e.theme, (None, None))[1],
+                    "asset_id": (
+                        aid := e.theme if view == "assets" else themes.ASSET_OF.get(e.theme)
+                    ),
+                    "price": lines.get(aid) if aid else None,
                 }
                 for e in entries
             ],  # fmt: skip
+            "prices_available": bool(priced and priced["available"]),
+            "prices_notice": (priced or {}).get("notice")
+            or (f"Prices unavailable: {price_error}" if price_error else None),
             "dropped": [names.get(d, (d, None))[0] for d in dropped],
             "themes": [{"name": n, "pattern": themes.pattern(b)} for n, b in themes.THEMES],
             "topics": list(READ_TOPICS),
@@ -606,7 +658,26 @@ class Store:
 
     def asset(self, asset_id: str) -> dict[str, Any] | None:
         with self._con() as con:
-            return mining.asset(con, asset_id)
+            out = mining.asset(con, asset_id)
+            if out is None:
+                return None
+            rows = prices.proxy_rows(con, [asset_id]).get(asset_id, [])
+            out["components"] = components.components(con, asset_id)
+        ok, notice = self.market_status()
+        info: dict[str, dict[str, Any]] = {}
+        if ok:
+            try:
+                info = self.market.instruments([r["series"] for r in rows if r["series"] != NONE])
+            except Exception as e:  # the feed going away mid-request is a notice, not a 500
+                ok, notice = False, f"Prices unavailable: {type(e).__name__}"
+        rows_out = [prices.priced(r, info.get(r["series"])) for r in rows]
+        out["priced_by"] = {
+            "primary": rows_out[0] if rows_out and rows_out[0]["role"] == "primary" else None,
+            "companions": [r for r in rows_out if r["role"] == "companion"],
+            "prices_available": ok,
+            "notice": notice,
+        }
+        return out
 
     def mining(self) -> dict[str, Any]:
         with self._con() as con:

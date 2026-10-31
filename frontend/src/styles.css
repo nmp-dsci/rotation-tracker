@@ -261,6 +261,26 @@ select{ background:var(--panel); color:var(--ink); border:1px solid var(--line-3
 .spark-key{ display:flex; flex-wrap:wrap; gap:var(--s1) var(--s4); margin-top:var(--s1); font-size:var(--t-2); color:var(--ink-2); }
 .spark-key > span{ display:inline-flex; align-items:center; gap:var(--s1); white-space:nowrap; }
 .spark-swatch{ width:20px; height:8px; overflow:visible; }
+/* s03: the price strip under a row's mention lines: the same x scale, its own y scale. The price is the
+   brand accent and never green or red, which mean a call's stance and nothing else. */
+.price-strip{ display:block; margin-top:var(--s2); }
+.price-head{ display:flex; justify-content:space-between; align-items:baseline; gap:var(--s2); font-family:var(--mono);
+             font-size:var(--t-2); color:var(--muted); line-height:1.3; }
+.price-lab{ color:var(--ink-2); }
+.price-lab a{ color:var(--ink-2); text-decoration:none; }
+.price-lab a:hover{ color:var(--ink); text-decoration:underline; }
+.price-strip.nodata .price-head, .price-strip.none .price-head{ color:var(--faint); }
+.price-plot{ position:relative; display:block; height:36px; margin-top:var(--s1); }
+.price-plot svg{ position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+.price-plot polyline{ fill:none; stroke-width:2; stroke-linejoin:round; stroke-linecap:round; vector-effect:non-scaling-stroke; }
+.price-plot .px, .spark-swatch .px{ stroke:var(--accent); }
+/* this project's hue sits next to the bearish red, so the price is also an area, not only a line */
+.price-plot .px-area, .spark-swatch .px-area{ fill:var(--accent-soft); stroke:none; }
+.price-plot .ref, .spark-swatch .ref{ stroke:var(--line-3); stroke-dasharray:3 3; }
+.price-plot .ref, .price-plot .year{ stroke-width:1; vector-effect:non-scaling-stroke; }
+.price-plot .year{ stroke:var(--line); }
+.spark-swatch .ref{ stroke-width:1; }
+.price-notice{ margin:0 0 var(--s4); max-width:var(--w-narrow); }
 .chart-axis{ border-bottom:0; padding-top:0; padding-bottom:var(--s1); align-items:end; }
 .chart-kinds{ margin:0 0 var(--s5); }
 .chart-count{ margin:var(--s2) 0 var(--s5); }
@@ -363,6 +383,16 @@ a.asset-chip:hover{ border-color:var(--accent); }
 .sc.quiet{ color:var(--faint); }
 .sc.unmined{ background:transparent; border:1px dashed var(--line-2); }
 a.sc:hover{ outline:2px solid var(--focus); outline-offset:1px; }
+/* s03: what prices an asset, and what is inside a category */
+.priced-by{ margin:var(--s3) 0 0; color:var(--ink-2); max-width:var(--measure); }
+.priced-by b{ color:var(--ink); font-family:var(--mono); font-weight:600; }
+.comp-note{ font-size:var(--t-1); color:var(--muted); max-width:var(--measure); margin:0 0 var(--s3); }
+.comp-chips{ display:flex; flex-wrap:wrap; gap:var(--s2); margin:var(--s2) 0; }
+.comp-chip{ display:inline-flex; align-items:baseline; gap:var(--s1); font-family:var(--mono); font-size:var(--t-1); color:var(--ink-2);
+            border:1px solid var(--line-2); border-radius:999px; padding:2px 10px; text-decoration:none; }
+.comp-chip.said{ border-color:var(--accent); color:var(--ink); }
+.comp-chip .n{ font-variant-numeric:tabular-nums; color:var(--muted); }
+a.comp-chip:hover{ border-color:var(--ink); color:var(--ink); }
 .drops{ list-style:none; padding:0; margin:0; display:grid; gap:var(--s3); font-size:var(--t-1); color:var(--ink-2); }
 .drops li{ overflow-wrap:anywhere; }
 .checks{ list-style:none; padding:0; margin:0; display:grid; gap:var(--s5); }

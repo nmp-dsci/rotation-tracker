@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { routes } from './routes';
-import { respond } from './test/fixtures';
+import { market, respond } from './test/fixtures';
 
 beforeEach(() => {
   vi.stubGlobal(
@@ -16,7 +16,10 @@ beforeEach(() => {
   );
   window.scrollTo = vi.fn() as unknown as typeof window.scrollTo;
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  market.prices = true;
+});
 
 function open(path: string) {
   render(<RouterProvider router={createMemoryRouter(routes, { initialEntries: [path] })} />);
@@ -137,5 +140,75 @@ describe('every page renders from the API', () => {
     open('/label');
     expect(await screen.findByText(/This viewer cannot record/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Right/ })).toBeNull();
+  });
+});
+
+describe('prices (s03): a strip under each chart row, and what prices an asset', () => {
+  it('chart: each row has its price on the same x scale, linked to the pinned asset', async () => {
+    open('/chart');
+    const lab = await screen.findByRole('link', { name: 'WDGT' });
+    expect(lab.getAttribute('href')).toBe('/assets/theme%3Awidgets'); // the theme's pinned asset
+    expect(screen.getByText('100 → 118')).toBeTruthy(); // performance: rebased to 100
+    expect(screen.getByTitle('Q3 2026: WDGT 118 · last close in the quarter, rebased, 100 = Q2 2026')).toBeTruthy();
+    expect(screen.getByText('-0.50 → 0.25')).toBeTruthy(); // a FRED level, in its own units
+    expect(screen.getByTitle('Q2 2026: SPREAD -0.50 · last close in the quarter, a level')).toBeTruthy();
+    expect(screen.getByText('no prices yet')).toBeTruthy(); // a series with no data
+    expect(screen.getByText('price, its own scale')).toBeTruthy();
+    expect(screen.queryByText(/i no prices/)).toBeNull();
+    const strip = screen.getByRole('img', { name: /^WDGT, rebased/ });
+    expect(strip.querySelectorAll('polyline.px')).toHaveLength(1);
+  });
+
+  it('chart: a gap in a series breaks its line, and an unpriced asset says so', async () => {
+    open('/chart?view=assets');
+    expect(await screen.findByRole('link', { name: 'Gold' })).toBeTruthy();
+    expect(screen.getByText('not priced').getAttribute('title')).toBe('A synthetic reason it is unpriced.');
+    const nvda = screen.getByRole('img', { name: /^NVDA, rebased/ });
+    expect(nvda.getAttribute('aria-label')).toContain('Q2 2026 none; Q3 2026 100');
+  });
+
+  it('chart: without market data, a notice, and every row still names its series', async () => {
+    market.prices = false;
+    open('/chart');
+    expect(await screen.findByText(/market_staging.series_values is not there/)).toBeTruthy();
+    expect(screen.getByText('i no prices')).toBeTruthy();
+    expect(screen.getAllByText('no prices yet')).toHaveLength(3);
+    expect(screen.getByRole('link', { name: 'WDGT' })).toBeTruthy();
+    expect(screen.queryByRole('img', { name: /rebased/ })).toBeNull();
+  });
+
+  it('an asset: priced by its primary since its first year, with companions, and its components', async () => {
+    open('/assets/theme%3Awidgets');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Widgets' })).toBeTruthy();
+    expect(screen.getByText('WDGT since 2001')).toBeTruthy();
+    expect(screen.getByText('WIDGETIDX since 1990')).toBeTruthy();
+    expect(screen.getByText(/priced by WDGT/)).toBeTruthy(); // the eyebrow
+    expect(screen.getByRole('heading', { level: 2, name: 'Components' })).toBeTruthy();
+    const chips = within(screen.getByRole('list', { name: 'Components' }));
+    const said = chips.getByRole('link', { name: 'WDGT 7' });
+    expect(said.className).toContain('said');
+    expect(chips.getByRole('link', { name: 'GDGT' }).getAttribute('href')).toBe('/assets/stock%3AGDGT');
+    expect(screen.getByText(/issuer holdings: phase 2/)).toBeTruthy();
+    expect(screen.queryByText(/No prices loaded yet/)).toBeNull();
+  });
+
+  it('an asset without market data keeps its series and says the prices are not loaded', async () => {
+    market.prices = false;
+    open('/assets/theme%3Awidgets');
+    expect(await screen.findByText(/No prices loaded yet/)).toBeTruthy();
+    expect(screen.getByText('WDGT', { selector: '.priced-by b' })).toBeTruthy(); // no first date: no "since"
+  });
+
+  it('an asset priced by nothing on purpose shows the reason', async () => {
+    open('/assets/macro%3Awidget-policy');
+    expect(await screen.findByText('not priced')).toBeTruthy();
+    expect(screen.getByText(/policy is context, not a price/)).toBeTruthy();
+    expect(screen.getByText(/No component list/)).toBeTruthy();
+  });
+
+  it('assets: the list shows what prices each row', async () => {
+    open('/assets');
+    expect(await screen.findByRole('columnheader', { name: 'Priced by' })).toBeTruthy();
+    expect(screen.getByTitle('yahoo:WDGT').textContent).toBe('WDGT');
   });
 });
